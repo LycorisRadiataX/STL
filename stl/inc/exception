@@ -93,7 +93,6 @@ public:
     __CLR_OR_THIS_CALL exception(const exception& _Right) noexcept : _Ptr(_Right._Ptr) {}
 
     exception& __CLR_OR_THIS_CALL operator=(const exception& _Right) noexcept {
-
         _Ptr = _Right._Ptr;
         return *this;
     }
@@ -114,8 +113,7 @@ public:
     }
 
 protected:
-    virtual void __CLR_OR_THIS_CALL _Doraise() const { // perform class-specific exception handling
-    }
+    virtual void __CLR_OR_THIS_CALL _Doraise() const {} // perform class-specific exception handling
 
 protected:
     const char* _Ptr; // the message pointer
@@ -138,8 +136,7 @@ protected:
 class bad_alloc : public exception { // base of all bad allocation exceptions
 public:
     __CLR_OR_THIS_CALL bad_alloc() noexcept
-        : exception("bad allocation", 1) { // construct from message string with no memory allocation
-    }
+        : exception("bad allocation", 1) {} // construct from message string with no memory allocation
 
     virtual __CLR_OR_THIS_CALL ~bad_alloc() noexcept {}
 
@@ -147,8 +144,7 @@ private:
     friend class bad_array_new_length;
 
     __CLR_OR_THIS_CALL bad_alloc(const char* _Message) noexcept
-        : exception(_Message, 1) { // construct from message string with no memory allocation
-    }
+        : exception(_Message, 1) {} // construct from message string with no memory allocation
 
 protected:
     virtual void __CLR_OR_THIS_CALL _Doraise() const override { // perform class-specific exception handling
@@ -186,8 +182,7 @@ inline unexpected_handler __CRTDECL set_unexpected(unexpected_handler) noexcept 
     return nullptr;
 }
 
-inline void __CRTDECL unexpected() { // handle unexpected exception
-}
+inline void __CRTDECL unexpected() {} // handle unexpected exception
 
 _NODISCARD inline unexpected_handler __CRTDECL get_unexpected() noexcept { // get current unexpected handler
     return nullptr;
@@ -209,7 +204,7 @@ _CRTIMP2_PURE void __CLRCALL_PURE_OR_CDECL __ExceptionPtrAssign(_Inout_ void*, _
 _CRTIMP2_PURE bool __CLRCALL_PURE_OR_CDECL __ExceptionPtrCompare(_In_ const void*, _In_ const void*) noexcept;
 _CRTIMP2_PURE bool __CLRCALL_PURE_OR_CDECL __ExceptionPtrToBool(_In_ const void*) noexcept;
 _CRTIMP2_PURE void __CLRCALL_PURE_OR_CDECL __ExceptionPtrSwap(_Inout_ void*, _Inout_ void*) noexcept;
-_CRTIMP2_PURE void __CLRCALL_PURE_OR_CDECL __ExceptionPtrCurrentException(_Out_ void*) noexcept;
+_CRTIMP2_PURE void __CLRCALL_PURE_OR_CDECL __ExceptionPtrCurrentException(void*) noexcept;
 [[noreturn]] _CRTIMP2_PURE void __CLRCALL_PURE_OR_CDECL __ExceptionPtrRethrow(_In_ const void*);
 _CRTIMP2_PURE void __CLRCALL_PURE_OR_CDECL __ExceptionPtrCopyException(
     _Inout_ void*, _In_ const void*, _In_ const void*) noexcept;
@@ -355,11 +350,9 @@ private:
 template <class _Ty, class _Uty>
 struct _With_nested : _Uty, nested_exception { // glue user exception to nested_exception
     explicit _With_nested(_Ty&& _Arg)
-        : _Uty(_STD forward<_Ty>(_Arg)), nested_exception() { // store user exception and current_exception()
-    }
+        : _Uty(_STD forward<_Ty>(_Arg)), nested_exception() {} // store user exception and current_exception()
 };
 
-#if _HAS_IF_CONSTEXPR
 template <class _Ty>
 [[noreturn]] void throw_with_nested(_Ty&& _Arg) { // throw user exception, glued to nested_exception if possible
     using _Uty = decay_t<_Ty>;
@@ -373,29 +366,6 @@ template <class _Ty>
         _THROW(_STD forward<_Ty>(_Arg));
     }
 }
-#else // ^^^ _HAS_IF_CONSTEXPR ^^^ // vvv !_HAS_IF_CONSTEXPR vvv
-template <class _Ty>
-[[noreturn]] void _Throw_with_nested(_Ty&& _Arg, true_type) { // throw user exception glued to nested_exception
-    using _Uty   = decay_t<_Ty>;
-    using _Glued = _With_nested<_Ty, _Uty>;
-
-    _THROW(_Glued(_STD forward<_Ty>(_Arg)));
-}
-
-template <class _Ty>
-[[noreturn]] void _Throw_with_nested(_Ty&& _Arg, false_type) { // throw user exception by itself
-    _THROW(_STD forward<_Ty>(_Arg));
-}
-
-template <class _Ty>
-[[noreturn]] void throw_with_nested(_Ty&& _Arg) { // throw user exception, glued to nested_exception if possible
-    using _Uty = decay_t<_Ty>;
-
-    bool_constant<is_class_v<_Uty> && !is_base_of_v<nested_exception, _Uty> && !is_final_v<_Uty>> _Tag;
-
-    _Throw_with_nested(_STD forward<_Ty>(_Arg), _Tag);
-}
-#endif // _HAS_IF_CONSTEXPR
 
 #ifdef _CPPRTTI
 // FUNCTION TEMPLATE rethrow_if_nested
@@ -409,8 +379,7 @@ void _Rethrow_if_nested(const _Ty* _Ptr, true_type) { // use dynamic_cast
 }
 
 template <class _Ty>
-void _Rethrow_if_nested(const _Ty*, false_type) { // can't use dynamic_cast
-}
+void _Rethrow_if_nested(const _Ty*, false_type) {} // can't use dynamic_cast
 
 template <class _Ty>
 void rethrow_if_nested(const _Ty& _Arg) { // detect nested_exception inheritance

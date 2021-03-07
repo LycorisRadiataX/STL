@@ -468,11 +468,13 @@ _NODISCARD bool operator==(const unordered_map<_Kty, _Ty, _Hasher, _Keyeq, _Allo
     return _Hash_equal(_Left, _Right);
 }
 
+#if !_HAS_CXX20
 template <class _Kty, class _Ty, class _Hasher, class _Keyeq, class _Alloc>
 _NODISCARD bool operator!=(const unordered_map<_Kty, _Ty, _Hasher, _Keyeq, _Alloc>& _Left,
     const unordered_map<_Kty, _Ty, _Hasher, _Keyeq, _Alloc>& _Right) {
     return !(_Left == _Right);
 }
+#endif // !_HAS_CXX20
 
 // CLASS TEMPLATE unordered_multimap
 template <class _Kty, class _Ty, class _Hasher = hash<_Kty>, class _Keyeq = equal_to<_Kty>,
@@ -511,12 +513,10 @@ public:
     using local_iterator       = typename _Mybase::iterator;
     using const_local_iterator = typename _Mybase::const_iterator;
 
-    unordered_multimap() : _Mybase(_Key_compare(), allocator_type()) { // construct empty map from defaults
-    }
+    unordered_multimap() : _Mybase(_Key_compare(), allocator_type()) {} // construct empty map from defaults
 
     explicit unordered_multimap(const allocator_type& _Al)
-        : _Mybase(_Key_compare(), _Al) { // construct empty map from defaults, allocator
-    }
+        : _Mybase(_Key_compare(), _Al) {} // construct empty map from defaults, allocator
 
     unordered_multimap(const unordered_multimap& _Right)
         : _Mybase(_Right, _Alnode_traits::select_on_container_copy_construction(_Right._Getal())) {}
@@ -760,11 +760,13 @@ _NODISCARD bool operator==(const unordered_multimap<_Kty, _Ty, _Hasher, _Keyeq, 
     return _Hash_equal(_Left, _Right);
 }
 
+#if !_HAS_CXX20
 template <class _Kty, class _Ty, class _Hasher, class _Keyeq, class _Alloc>
 _NODISCARD bool operator!=(const unordered_multimap<_Kty, _Ty, _Hasher, _Keyeq, _Alloc>& _Left,
     const unordered_multimap<_Kty, _Ty, _Hasher, _Keyeq, _Alloc>& _Right) {
     return !(_Left == _Right);
 }
+#endif // !_HAS_CXX20
 
 #if _HAS_TR1_NAMESPACE
 namespace _DEPRECATE_TR1_NAMESPACE tr1 {

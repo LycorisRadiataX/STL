@@ -137,8 +137,9 @@ public:
     }
 
     int_type __CLR_OR_THIS_CALL snextc() { // point to next character and return it
-        return 1 < _Gnavail() ? _Traits::to_int_type(*_Gnpreinc())
-                              : _Traits::eq_int_type(_Traits::eof(), sbumpc()) ? _Traits::eof() : sgetc();
+        return 1 < _Gnavail()                                 ? _Traits::to_int_type(*_Gnpreinc())
+             : _Traits::eq_int_type(_Traits::eof(), sbumpc()) ? _Traits::eof()
+                                                              : sgetc();
     }
 
     int_type __CLR_OR_THIS_CALL sputbackc(_Elem _Ch) { // put back _Ch
@@ -172,11 +173,9 @@ public:
         return xsputn(_Ptr, _Count);
     }
 
-    virtual void __CLR_OR_THIS_CALL _Lock() { // set the thread lock (overridden by basic_filebuf)
-    }
+    virtual void __CLR_OR_THIS_CALL _Lock() {} // set the thread lock (overridden by basic_filebuf)
 
-    virtual void __CLR_OR_THIS_CALL _Unlock() { // clear the thread lock (overridden by basic_filebuf)
-    }
+    virtual void __CLR_OR_THIS_CALL _Unlock() {} // clear the thread lock (overridden by basic_filebuf)
 
 protected:
     _Elem* __CLR_OR_THIS_CALL eback() const {
@@ -376,8 +375,7 @@ protected:
         return 0;
     }
 
-    virtual void __CLR_OR_THIS_CALL imbue(const locale&) { // set locale to argument (do nothing)
-    }
+    virtual void __CLR_OR_THIS_CALL imbue(const locale&) {} // set locale to argument (do nothing)
 
 private:
     _Elem* _Gfirst; // beginning of read buffer

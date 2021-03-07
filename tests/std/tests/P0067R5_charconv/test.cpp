@@ -3,6 +3,29 @@
 
 #include "test.hpp"
 
+#include <algorithm>
+#include <array>
+#include <assert.h>
+#include <charconv>
+#include <chrono>
+#include <cmath>
+#include <fstream>
+#include <functional>
+#include <limits>
+#include <optional>
+#include <random>
+#include <set>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include "double_fixed_precision_to_chars_test_cases_1.hpp"
 #include "double_fixed_precision_to_chars_test_cases_2.hpp"
 #include "double_fixed_precision_to_chars_test_cases_3.hpp"
@@ -21,32 +44,9 @@
 #include "float_hex_precision_to_chars_test_cases.hpp"
 #include "float_scientific_precision_to_chars_test_cases.hpp"
 #include "float_to_chars_test_cases.hpp"
-#include <algorithm>
-#include <array>
-#include <assert.h>
-#include <charconv>
-#include <chrono>
-#include <cmath>
 #include <floating_point_test_cases.hpp>
-#include <fstream>
-#include <functional>
-#include <limits>
-#include <optional>
-#include <random>
-#include <set>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <string>
-#include <string_view>
-#include <system_error>
-#include <type_traits>
-#include <utility>
-#include <vector>
 
 using namespace std;
-using namespace std::chrono;
 
 void initialize_randomness(mt19937_64& mt64, const int argc, char** const argv) {
     constexpr size_t n = mt19937_64::state_size;
@@ -101,7 +101,8 @@ void initialize_randomness(mt19937_64& mt64, const int argc, char** const argv) 
 
     puts("Successfully seeded mt64. First three values:");
     for (int i = 0; i < 3; ++i) {
-        printf("0x%016llX\n", mt64());
+        // libc++ uses long for 64-bit values.
+        printf("0x%016llX\n", static_cast<unsigned long long>(mt64()));
     }
 }
 
@@ -125,10 +126,10 @@ void test_common_to_chars(
 
     constexpr size_t BufferPrefix = 20; // detect buffer underruns (specific value isn't important)
 
-    constexpr size_t Space =
-        is_integral_v<T> ? 1 + 64 // worst case: -2^63 in binary
-                         : is_same_v<T, float> ? 1 + 151 // worst case: negative min subnormal float, fixed notation
-                                               : 1 + 1076; // worst case: negative min subnormal double, fixed notation
+    constexpr size_t Space = is_integral_v<T> ? 1 + 64 // worst case: -2^63 in binary
+                           : is_same_v<T, float>
+                               ? 1 + 151 // worst case: negative min subnormal float, fixed notation
+                               : 1 + 1076; // worst case: negative min subnormal double, fixed notation
 
     constexpr size_t BufferSuffix = 30; // detect buffer overruns (specific value isn't important)
 
@@ -565,20 +566,21 @@ void all_integer_tests() {
 
 void assert_message_bits(const bool b, const char* const msg, const uint32_t bits) {
     if (!b) {
-        printf("%s failed for 0x%08X\n", msg, bits);
-        puts("This is a randomized test.");
-        puts("DO NOT IGNORE/RERUN THIS FAILURE.");
-        puts("You must report it to the STL maintainers.");
+        fprintf(stderr, "%s failed for 0x%08X\n", msg, bits);
+        fprintf(stderr, "This is a randomized test.\n");
+        fprintf(stderr, "DO NOT IGNORE/RERUN THIS FAILURE.\n");
+        fprintf(stderr, "You must report it to the STL maintainers.\n");
         abort();
     }
 }
 
 void assert_message_bits(const bool b, const char* const msg, const uint64_t bits) {
     if (!b) {
-        printf("%s failed for 0x%016llX\n", msg, bits);
-        puts("This is a randomized test.");
-        puts("DO NOT IGNORE/RERUN THIS FAILURE.");
-        puts("You must report it to the STL maintainers.");
+        // libc++ uses long for 64-bit values.
+        fprintf(stderr, "%s failed for 0x%016llX\n", msg, static_cast<unsigned long long>(bits));
+        fprintf(stderr, "This is a randomized test.\n");
+        fprintf(stderr, "DO NOT IGNORE/RERUN THIS FAILURE.\n");
+        fprintf(stderr, "You must report it to the STL maintainers.\n");
         abort();
     }
 }
@@ -595,8 +597,8 @@ constexpr uint32_t PrefixesToTest = 100; // Tunable for test coverage vs. perfor
 static_assert(PrefixesToTest >= 1, "Must test at least 1 prefix.");
 
 constexpr uint32_t PrefixLimit = 2 // sign bit
-                                 * 255 // non-INF/NAN exponents for float
-                                 * (1U << (23 - FractionBits)); // fraction bits in prefix
+                               * 255 // non-INF/NAN exponents for float
+                               * (1U << (23 - FractionBits)); // fraction bits in prefix
 static_assert(PrefixesToTest <= PrefixLimit, "Too many prefixes.");
 
 template <bool IsDouble>
@@ -701,9 +703,9 @@ void test_floating_precision_prefix(const conditional_t<IsDouble, uint64_t, uint
 
     // Size for fixed notation. (More than enough for scientific notation.)
     constexpr size_t charconv_buffer_size = 1 // negative sign
-                                            + max_integer_length // integer digits
-                                            + 1 // decimal point
-                                            + precision; // fractional digits
+                                          + max_integer_length // integer digits
+                                          + 1 // decimal point
+                                          + precision; // fractional digits
     char charconv_buffer[charconv_buffer_size];
 
     constexpr size_t stdio_buffer_size = charconv_buffer_size + 1; // null terminator
@@ -1059,8 +1061,26 @@ void all_floating_tests(mt19937_64& mt64) {
     }
 }
 
+void test_right_shift_64_bits_with_rounding() {
+    // Directly test _Right_shift_with_rounding for the case of _Shift == 64 && _Value >= 2^63.
+    // We were unable to actually exercise this codepath with the public interface of from_chars,
+    // but were equally unable to prove that it can never ever be executed.
+    assert(_Right_shift_with_rounding(0x0000'0000'0000'0000ULL, 64, true) == 0);
+    assert(_Right_shift_with_rounding(0x0000'0000'0000'0000ULL, 64, false) == 0);
+    assert(_Right_shift_with_rounding(0x0000'0000'0000'0001ULL, 64, true) == 0);
+    assert(_Right_shift_with_rounding(0x0000'0000'0000'0001ULL, 64, false) == 0);
+    assert(_Right_shift_with_rounding(0x7fff'ffff'ffff'ffffULL, 64, true) == 0);
+    assert(_Right_shift_with_rounding(0x7fff'ffff'ffff'ffffULL, 64, false) == 0);
+    assert(_Right_shift_with_rounding(0x8000'0000'0000'0000ULL, 64, true) == 0);
+    assert(_Right_shift_with_rounding(0x8000'0000'0000'0000ULL, 64, false) == 1);
+    assert(_Right_shift_with_rounding(0x8000'0000'0000'0001ULL, 64, true) == 1);
+    assert(_Right_shift_with_rounding(0x8000'0000'0000'0001ULL, 64, false) == 1);
+    assert(_Right_shift_with_rounding(0xffff'ffff'ffff'ffffULL, 64, true) == 1);
+    assert(_Right_shift_with_rounding(0xffff'ffff'ffff'ffffULL, 64, false) == 1);
+}
+
 int main(int argc, char** argv) {
-    const auto start = steady_clock::now();
+    const auto start = chrono::steady_clock::now();
 
     mt19937_64 mt64;
 
@@ -1070,16 +1090,18 @@ int main(int argc, char** argv) {
 
     all_floating_tests(mt64);
 
-    const auto finish  = steady_clock::now();
-    const long long ms = duration_cast<milliseconds>(finish - start).count();
+    test_right_shift_64_bits_with_rounding();
+
+    const auto finish  = chrono::steady_clock::now();
+    const long long ms = chrono::duration_cast<chrono::milliseconds>(finish - start).count();
 
     puts("PASS");
     printf("Randomized test cases: %u\n", PrefixesToTest * Fractions);
     printf("Total time: %lld ms\n", ms);
 
     if (ms < 3'000) {
-        puts("That was fast. Consider retuning PrefixesToTest and FractionBits.");
+        puts("That was fast. Consider tuning PrefixesToTest and FractionBits to test more cases.");
     } else if (ms > 30'000) {
-        puts("That was slow. Consider retuning PrefixesToTest and FractionBits.");
+        puts("That was slow. Consider tuning PrefixesToTest and FractionBits to test fewer cases.");
     }
 }
