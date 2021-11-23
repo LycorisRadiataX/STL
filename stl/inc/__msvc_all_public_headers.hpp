@@ -87,6 +87,7 @@
 #include <deque>
 #include <exception>
 #include <filesystem>
+#include <format>
 #include <forward_list>
 #include <fstream>
 #include <functional>
@@ -114,6 +115,7 @@
 #include <scoped_allocator>
 #include <set>
 #include <span>
+#include <spanstream>
 #include <sstream>
 #include <stack>
 #include <stdexcept>
@@ -137,6 +139,7 @@
 #include <barrier>
 #include <latch>
 #include <semaphore>
+#include <stdatomic.h>
 #include <stop_token>
 #endif // _M_CEE_PURE
 
