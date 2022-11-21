@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include <assert.h>
+#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <format>
@@ -60,7 +60,7 @@ constexpr bool test_basic_format_parse_context() {
     }
 
     { // arg_id
-        basic_format_parse_context<CharType> context{format_string};
+        basic_format_parse_context<CharType> context{format_string, 10};
         const same_as<size_t> auto first_arg_id = context.next_arg_id();
         assert(first_arg_id == 0);
 

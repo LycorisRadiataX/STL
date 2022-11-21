@@ -9,6 +9,7 @@
 #include <Windows.h>
 
 #include "awint.hpp"
+#include "init_locks.hpp"
 
 #pragma warning(disable : 4074)
 #pragma init_seg(compiler)
@@ -42,7 +43,7 @@ namespace Concurrency {
                 return nullptr;
 #else // ^^^ defined(_CRT_APP) ^^^ // vvv !defined(_CRT_APP) vvv
                 HMODULE _Result;
-                if (::GetModuleHandleExW(_Flags, _Addr, &_Result) == 0) {
+                if (!GetModuleHandleExW(_Flags, _Addr, &_Result)) {
                     return nullptr;
                 }
 

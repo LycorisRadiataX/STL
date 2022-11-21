@@ -1,11 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#pragma once
+#ifndef TEST_HPP
+#define TEST_HPP
 
 #include <charconv>
+#include <cstddef>
 #include <limits>
-#include <stddef.h>
 #include <system_error>
 using namespace std;
 
@@ -77,3 +78,5 @@ struct DoublePrecisionToWideTestCase {
     int precision;
     const wchar_t* correct;
 };
+
+#endif // TEST_HPP

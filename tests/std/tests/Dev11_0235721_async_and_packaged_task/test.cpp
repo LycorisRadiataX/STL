@@ -1,12 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include <assert.h>
+#include <cassert>
 #include <chrono>
+#include <cstdlib>
 #include <functional>
 #include <future>
 #include <memory>
-#include <stdlib.h>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -169,10 +169,10 @@ struct move_only_functor_type {
 
     move_only_functor_type() = delete;
     move_only_functor_type(int, int) {}
-    move_only_functor_type(const move_only_functor_type&) = delete;
-    move_only_functor_type(move_only_functor_type&&)      = default;
+    move_only_functor_type(const move_only_functor_type&)            = delete;
+    move_only_functor_type(move_only_functor_type&&)                 = default;
     move_only_functor_type& operator=(const move_only_functor_type&) = delete;
-    move_only_functor_type& operator=(move_only_functor_type&&) = delete;
+    move_only_functor_type& operator=(move_only_functor_type&&)      = delete;
 };
 
 void test_VSO_112570() {
@@ -266,6 +266,7 @@ void test_shared_future_noexcept_copy() {
     test_shared_future_noexcept_copy_impl<void>();
 }
 
+#ifndef _M_CEE // TRANSITION, VSO-1659511
 struct use_async_in_a_global_tester {
     use_async_in_a_global_tester() {
         assert(async([] { return 42; }).get() == 42);
@@ -274,6 +275,7 @@ struct use_async_in_a_global_tester {
         (void) async([] { return 1729; }).get();
     }
 } use_async_in_a_global_instance;
+#endif // _M_CEE
 
 int main() {
     test_DevDiv_235721();

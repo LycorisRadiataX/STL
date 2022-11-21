@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <atomic>
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
-#include <stdlib.h>
 #include <thread>
 #include <type_traits>
 #include <utility>
@@ -13,12 +13,7 @@ using namespace std;
 
 // LOCK ORDERING: g_coutMutex is locked after all other locks and synchronizes
 // access to cout.
-#ifdef _M_CEE
-#include <shared_mutex>
-using TestMutex = shared_mutex;
-#else // ^^^ _M_CEE ^^^ // vvv !_M_CEE vvv //
 using TestMutex = mutex;
-#endif // _M_CEE
 
 TestMutex g_coutMutex;
 
@@ -108,7 +103,7 @@ public:
         cout << "Started thread " << this->t.get_id() << endl;
     }
 
-    logging_thread(logging_thread const&) = delete;
+    logging_thread(logging_thread const&)            = delete;
     logging_thread& operator=(logging_thread const&) = delete;
 
     ~logging_thread() {

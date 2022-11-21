@@ -6,13 +6,13 @@
 // Regress\intrin\atomic.cpp
 //
 
-#include <assert.h>
 #include <atomic>
+#include <cassert>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <new>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 #include <type_traits>
 
 
@@ -150,6 +150,7 @@ void helper2() {
     const Atom const_atom(obj);
 
     bool b = const_atom.is_lock_free();
+    (void) b;
 
     atom.store(obj);
     atom.store(obj, memory_order_seq_cst);
@@ -450,7 +451,7 @@ void test_compare_exchange_relaxed_memory_orders() {
 struct non_default_ctor_able {
     non_default_ctor_able() = delete;
     explicit non_default_ctor_able(int) {}
-    non_default_ctor_able(const non_default_ctor_able&) = default;
+    non_default_ctor_able(const non_default_ctor_able&)            = default;
     non_default_ctor_able& operator=(const non_default_ctor_able&) = default;
     ~non_default_ctor_able()                                       = default;
 };

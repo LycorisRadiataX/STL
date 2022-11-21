@@ -4,8 +4,8 @@
 // Covers ranges::view_interface and ranges::subrange
 
 #include <cassert>
-#include <concepts>
 #include <forward_list>
+#include <istream>
 #include <list>
 #include <ranges>
 #include <string_view>
@@ -23,13 +23,18 @@ using std::output_iterator_tag, std::input_iterator_tag, std::forward_iterator_t
 
 int main() {} // COMPILE-ONLY
 
+void test_LWG_3470() {
+    // LWG-3470 relaxed the "convertible-to-non-slicing" requirements to allow this non-slicing case
+    int a[]                 = {1, 2, 3};
+    int* b[]                = {&a[2], &a[0], &a[1]};
+    [[maybe_unused]] auto c = std::ranges::subrange<const int* const*>(b);
+}
+
 struct empty {};
 
 namespace test_view_interface {
     template <class T>
-    concept CanViewInterface = requires {
-        typename ranges::view_interface<T>;
-    };
+    concept CanViewInterface = requires { typename ranges::view_interface<T>; };
 
     template <class T>
     constexpr bool test_template_id() {
@@ -76,6 +81,10 @@ namespace test_view_interface {
 
         S end();
         S end() const requires (to_bool(HasConstRange));
+
+        unsigned int size() requires (to_bool(Diff) && !std::derived_from<Cat, forward_iterator_tag>);
+        unsigned int size() const requires (to_bool(HasConstRange) && to_bool(Diff)
+            && !std::derived_from<Cat, forward_iterator_tag>);
     };
     // clang-format on
 
@@ -86,6 +95,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(!CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(!CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(!CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(!CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -107,6 +122,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(!CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(!CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(!CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(!CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -126,13 +147,19 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::range<V>);
         STATIC_ASSERT(!ranges::range<V const>);
         STATIC_ASSERT(ranges::view<V>);
-        STATIC_ASSERT(!CanEmpty<V&>);
+        STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
-        STATIC_ASSERT(!CanBool<V&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(!CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(!CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
+        STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
         STATIC_ASSERT(!CanData<V const&>);
-        STATIC_ASSERT(!CanSize<V&>);
+        STATIC_ASSERT(CanSize<V&>);
         STATIC_ASSERT(!CanSize<V const&>);
         STATIC_ASSERT(!CanMemberFront<V&>);
         STATIC_ASSERT(!CanMemberFront<V const&>);
@@ -147,14 +174,20 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::range<V>);
         STATIC_ASSERT(ranges::range<V const>);
         STATIC_ASSERT(ranges::view<V>);
-        STATIC_ASSERT(!CanEmpty<V&>);
-        STATIC_ASSERT(!CanEmpty<V const&>);
-        STATIC_ASSERT(!CanBool<V&>);
-        STATIC_ASSERT(!CanBool<V const&>);
+        STATIC_ASSERT(CanEmpty<V&>);
+        STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(!CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(!CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
+        STATIC_ASSERT(CanBool<V&>);
+        STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
         STATIC_ASSERT(!CanData<V const&>);
-        STATIC_ASSERT(!CanSize<V&>);
-        STATIC_ASSERT(!CanSize<V const&>);
+        STATIC_ASSERT(CanSize<V&>);
+        STATIC_ASSERT(CanSize<V const&>);
         STATIC_ASSERT(!CanMemberFront<V&>);
         STATIC_ASSERT(!CanMemberFront<V const&>);
         STATIC_ASSERT(!CanMemberBack<V&>);
@@ -170,6 +203,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(!CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(!CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -191,6 +230,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(!CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(!CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -210,13 +255,19 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::range<V>);
         STATIC_ASSERT(!ranges::range<V const>);
         STATIC_ASSERT(ranges::view<V>);
-        STATIC_ASSERT(!CanEmpty<V&>);
+        STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
-        STATIC_ASSERT(!CanBool<V&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
+        STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
         STATIC_ASSERT(!CanData<V const&>);
-        STATIC_ASSERT(!CanSize<V&>);
+        STATIC_ASSERT(CanSize<V&>);
         STATIC_ASSERT(!CanSize<V const&>);
         STATIC_ASSERT(!CanMemberFront<V&>);
         STATIC_ASSERT(!CanMemberFront<V const&>);
@@ -231,14 +282,20 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::range<V>);
         STATIC_ASSERT(ranges::range<V const>);
         STATIC_ASSERT(ranges::view<V>);
-        STATIC_ASSERT(!CanEmpty<V&>);
-        STATIC_ASSERT(!CanEmpty<V const&>);
-        STATIC_ASSERT(!CanBool<V&>);
-        STATIC_ASSERT(!CanBool<V const&>);
+        STATIC_ASSERT(CanEmpty<V&>);
+        STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
+        STATIC_ASSERT(CanBool<V&>);
+        STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
         STATIC_ASSERT(!CanData<V const&>);
-        STATIC_ASSERT(!CanSize<V&>);
-        STATIC_ASSERT(!CanSize<V const&>);
+        STATIC_ASSERT(CanSize<V&>);
+        STATIC_ASSERT(CanSize<V const&>);
         STATIC_ASSERT(!CanMemberFront<V&>);
         STATIC_ASSERT(!CanMemberFront<V const&>);
         STATIC_ASSERT(!CanMemberBack<V&>);
@@ -254,6 +311,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -275,6 +338,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -296,6 +365,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -317,6 +392,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -338,6 +419,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -359,6 +446,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -380,6 +473,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -401,6 +500,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -422,6 +527,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -443,6 +554,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -464,6 +581,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -485,6 +608,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -506,6 +635,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -527,6 +662,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -548,6 +689,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -569,6 +716,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -590,6 +743,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -611,6 +770,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -632,6 +797,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -653,6 +824,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(!CanData<V&>);
@@ -674,6 +851,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(CanData<V&>);
@@ -695,6 +878,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(CanData<V&>);
@@ -716,6 +905,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(!CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(!CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(!CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(!CanBool<V const&>);
         STATIC_ASSERT(CanData<V&>);
@@ -737,6 +932,12 @@ namespace test_view_interface {
         STATIC_ASSERT(ranges::view<V>);
         STATIC_ASSERT(CanEmpty<V&>);
         STATIC_ASSERT(CanEmpty<V const&>);
+#if _HAS_CXX23
+        STATIC_ASSERT(CanMemberCBegin<V&>);
+        STATIC_ASSERT(CanMemberCBegin<V const&>);
+        STATIC_ASSERT(CanMemberCEnd<V&>);
+        STATIC_ASSERT(CanMemberCEnd<V const&>);
+#endif // _HAS_CXX23
         STATIC_ASSERT(CanBool<V&>);
         STATIC_ASSERT(CanBool<V const&>);
         STATIC_ASSERT(CanData<V&>);
@@ -760,9 +961,7 @@ namespace test_subrange {
     // * template-id: subrange<I, S, K> is a valid template-id iff I models input_or_output_iterator, S models
     // sentinel_for<I>, and sized_sentinel_for<S, I> implies K == sized.
     template <class I, class S, ranges::subrange_kind K>
-    concept CanSubrange = requires {
-        typename subrange<I, S, K>;
-    };
+    concept CanSubrange = requires { typename subrange<I, S, K>; };
     STATIC_ASSERT(CanSubrange<int*, int*, subrange_kind::sized>);
     STATIC_ASSERT(!CanSubrange<int*, int*, subrange_kind::unsized>);
     STATIC_ASSERT(!CanSubrange<int*, void, subrange_kind::unsized>);
@@ -773,13 +972,13 @@ namespace test_subrange {
 
     template <class R>
     concept HasMemberEmpty = requires(std::remove_reference_t<R> const r) {
-        { r.empty() } -> same_as<bool>;
-    };
+                                 { r.empty() } -> same_as<bool>;
+                             };
 
     template <class R>
     concept HasMemberSize = requires(std::remove_reference_t<R> const r) {
-        { r.size() } -> std::integral;
-    };
+                                { r.size() } -> std::integral;
+                            };
 
     // Validate default template arguments: second defaults to first, and third defaults to subrange_kind::sized iff
     // sized_sentinel_for<second, first>.
@@ -796,7 +995,12 @@ namespace test_subrange {
     inline constexpr bool is_subrange<subrange<I, S, K>> = true;
 
     template <class T>
-    inline constexpr auto kind_of = illformed<T>();
+    struct illformed {
+        static_assert(always_false<T>);
+    };
+
+    template <class T>
+    inline constexpr auto kind_of = illformed<T>{};
     template <class I, class S, subrange_kind K>
     inline constexpr auto kind_of<subrange<I, S, K>> = K;
 
@@ -825,8 +1029,8 @@ namespace test_subrange {
 
         STATIC_ASSERT(constructible_from<Subrange, Rng&> == (!sized || sized_range<Rng> || sized_sentinel_for<S, I>) );
         STATIC_ASSERT(constructible_from<Subrange, Rng&, size_type> == sized);
-        STATIC_ASSERT(constructible_from<Subrange,
-                          Rng> == (borrowed_range<Rng> && (!sized || sized_range<Rng> || sized_sentinel_for<S, I>) ));
+        STATIC_ASSERT(constructible_from<Subrange, Rng>
+                      == (borrowed_range<Rng> && (!sized || sized_range<Rng> || sized_sentinel_for<S, I>) ));
         STATIC_ASSERT(constructible_from<Subrange, Rng, size_type> == (sized && borrowed_range<Rng>) );
 
         // Validate begin/end/empty
@@ -1070,9 +1274,10 @@ namespace test_subrange {
             using reference        = int;
 
             iterator() = default;
-            iterator(iterator<!IsConst>) requires IsConst;
+            iterator(iterator<!IsConst>)
+                requires IsConst;
 
-            iterator(iterator&&) = default;
+            iterator(iterator&&)            = default;
             iterator& operator=(iterator&&) = default;
 
             int operator*() const;
@@ -1083,7 +1288,8 @@ namespace test_subrange {
         template <bool IsConst>
         struct sentinel {
             sentinel() = default;
-            sentinel(sentinel<!IsConst>) requires IsConst;
+            sentinel(sentinel<!IsConst>)
+                requires IsConst;
 
             bool operator==(iterator<IsConst> const&) const;
         };
@@ -1477,3 +1683,40 @@ namespace test_subrange {
     STATIC_ASSERT(test_tuple<subrange<int*, std::unreachable_sentinel_t, subrange_kind::sized>>());
     STATIC_ASSERT(test_tuple<subrange<int*, std::unreachable_sentinel_t, subrange_kind::unsized>>());
 } // namespace test_subrange
+
+namespace test_lwg_3589 {
+    // LWG-3589 added a Constraint to std::get<0>(const subrange&) to require the iterator type to be copyable
+    template <class T, size_t I>
+    concept CanGet = requires { std::get<I>(std::declval<T>()); };
+
+    template <class T, size_t I>
+    concept CanRangesGet = requires { ranges::get<I>(std::declval<T>()); };
+
+    template <class I, class S>
+    constexpr bool test() {
+        using ranges::subrange;
+
+        STATIC_ASSERT(std::input_iterator<I>);
+        STATIC_ASSERT(std::sentinel_for<S, I>);
+
+        STATIC_ASSERT(CanGet<const subrange<I, S>&, 0> == std::copyable<I>);
+        STATIC_ASSERT(CanGet<const subrange<I, S>&, 1>);
+        STATIC_ASSERT(!CanGet<const subrange<I, S>&, 2>);
+        STATIC_ASSERT(CanGet<subrange<I, S>, 0>);
+        STATIC_ASSERT(CanGet<subrange<I, S>, 1>);
+        STATIC_ASSERT(!CanGet<subrange<I, S>, 2>);
+
+        STATIC_ASSERT(CanRangesGet<const subrange<I, S>&, 0> == std::copyable<I>);
+        STATIC_ASSERT(CanRangesGet<const subrange<I, S>&, 1>);
+        STATIC_ASSERT(!CanRangesGet<const subrange<I, S>&, 2>);
+        STATIC_ASSERT(CanRangesGet<subrange<I, S>, 0>);
+        STATIC_ASSERT(CanRangesGet<subrange<I, S>, 1>);
+        STATIC_ASSERT(!CanRangesGet<subrange<I, S>, 2>);
+
+        return true;
+    }
+
+    // Validate with a copyable iterator type, and with a move-only iterator type
+    STATIC_ASSERT(test<int*, int*>());
+    STATIC_ASSERT(test<ranges::iterator_t<ranges::istream_view<int>>, ranges::sentinel_t<ranges::istream_view<int>>>());
+} // namespace test_lwg_3589

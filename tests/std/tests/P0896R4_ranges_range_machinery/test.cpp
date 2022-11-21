@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <array>
-#include <assert.h>
+#include <cassert>
 #include <compare>
 #include <concepts>
 #include <cstddef>
 #include <cstdlib>
 #include <deque>
+#include <filesystem>
 #include <forward_list>
 #include <initializer_list>
 #include <iostream>
@@ -31,13 +32,15 @@
 // Note that many tests herein assume:
 STATIC_ASSERT(std::same_as<std::make_unsigned_t<std::ptrdiff_t>, std::size_t>);
 
+// GH-2358: <filesystem>: path's comparison operators are IF-NDR
+static_assert(ranges::range<std::filesystem::path>);
+static_assert(ranges::range<const std::filesystem::path>);
+
 template <class T>
 concept Decayed = std::same_as<std::decay_t<T>, T>;
 
 template <class R>
-concept CanSizeType = requires {
-    typename ranges::range_size_t<R>;
-};
+concept CanSizeType = requires { typename ranges::range_size_t<R>; };
 
 struct invalid_type {};
 
@@ -570,7 +573,6 @@ STATIC_ASSERT(!ranges::view<int const[]>);
 
 STATIC_ASSERT(test_begin<int (&)[], int*>());
 STATIC_ASSERT(test_end<int (&)[]>());
-STATIC_ASSERT(test_cbegin<int (&)[], int const*>());
 STATIC_ASSERT(test_cend<int (&)[]>());
 STATIC_ASSERT(test_rbegin<int (&)[]>());
 STATIC_ASSERT(test_rend<int (&)[]>());
@@ -578,15 +580,22 @@ STATIC_ASSERT(test_crbegin<int (&)[]>());
 STATIC_ASSERT(test_crend<int (&)[]>());
 STATIC_ASSERT(test_size<int (&)[]>());
 STATIC_ASSERT(test_empty<int (&)[], false>());
-// Can't use test_data/_cdata here because they use range_value_t and this isn't a range
+// Can't use test_data here because it uses range_value_t and this isn't a range
 STATIC_ASSERT(std::same_as<decltype(ranges::data(std::declval<int (&)[]>())), int*>);
-STATIC_ASSERT(std::same_as<decltype(ranges::cdata(std::declval<int (&)[]>())), int const*>);
 STATIC_ASSERT(!ranges::range<int (&)[]>);
 STATIC_ASSERT(!ranges::view<int (&)[]>);
 
+#if _HAS_CXX23 // ranges::cbegin and ranges::cdata behavior differs in C++20 and C++23 modes
+STATIC_ASSERT(test_cbegin<int (&)[]>());
+STATIC_ASSERT(test_cdata<int (&)[]>());
+#else // ^^^ C++23 / C++20 vvv
+STATIC_ASSERT(test_cbegin<int (&)[], int const*>());
+// Can't use test_cdata here because it uses range_value_t and this isn't a range
+STATIC_ASSERT(std::same_as<decltype(ranges::cdata(std::declval<int (&)[]>())), int const*>);
+#endif // C++20
+
 STATIC_ASSERT(test_begin<int const (&)[], int const*>());
 STATIC_ASSERT(test_end<int const (&)[]>());
-STATIC_ASSERT(test_cbegin<int const (&)[], int const*>());
 STATIC_ASSERT(test_cend<int const (&)[]>());
 STATIC_ASSERT(test_rbegin<int const (&)[]>());
 STATIC_ASSERT(test_rend<int const (&)[]>());
@@ -594,17 +603,24 @@ STATIC_ASSERT(test_crbegin<int const (&)[]>());
 STATIC_ASSERT(test_crend<int const (&)[]>());
 STATIC_ASSERT(test_size<int const (&)[]>());
 STATIC_ASSERT(test_empty<int const (&)[], false>());
-// Can't use test_data/_cdata here because they use range_value_t and this isn't a range
+// Can't use test_data here because it uses range_value_t and this isn't a range
 STATIC_ASSERT(std::same_as<decltype(ranges::data(std::declval<int const (&)[]>())), int const*>);
-STATIC_ASSERT(std::same_as<decltype(ranges::cdata(std::declval<int const (&)[]>())), int const*>);
 STATIC_ASSERT(!ranges::range<int const (&)[]>);
 STATIC_ASSERT(!ranges::view<int const (&)[]>);
+
+#if _HAS_CXX23 // ranges::cbegin and ranges::cdata behavior differs in C++20 and C++23 modes
+STATIC_ASSERT(test_cbegin<int const (&)[]>());
+STATIC_ASSERT(test_cdata<int const (&)[]>());
+#else // ^^^ C++23 / C++20 vvv
+STATIC_ASSERT(test_cbegin<int const (&)[], int const*>());
+// Can't use test_cdata here because it uses range_value_t and this isn't a range
+STATIC_ASSERT(std::same_as<decltype(ranges::cdata(std::declval<int const (&)[]>())), int const*>);
+#endif // C++20
 
 // Validate behavior before/after completing the bound of an array
 extern int initially_unbounded[];
 STATIC_ASSERT(ranges::begin(initially_unbounded) == initially_unbounded);
 STATIC_ASSERT(!CanEnd<decltype((initially_unbounded))>);
-STATIC_ASSERT(ranges::cbegin(initially_unbounded) == initially_unbounded);
 STATIC_ASSERT(!CanCEnd<decltype((initially_unbounded))>);
 STATIC_ASSERT(!CanRBegin<decltype((initially_unbounded))>);
 STATIC_ASSERT(!CanREnd<decltype((initially_unbounded))>);
@@ -613,7 +629,15 @@ STATIC_ASSERT(!CanCREnd<decltype((initially_unbounded))>);
 STATIC_ASSERT(!CanSize<decltype((initially_unbounded))>);
 STATIC_ASSERT(!CanEmpty<decltype((initially_unbounded))>);
 STATIC_ASSERT(ranges::data(initially_unbounded) == initially_unbounded);
+
+#if _HAS_CXX23 // ranges::cbegin and ranges::cdata behavior differs in C++20 and C++23 modes
+STATIC_ASSERT(!CanCBegin<decltype((initially_unbounded))>);
+STATIC_ASSERT(!CanCData<decltype((initially_unbounded))>);
+#else // ^^^ C++23 / C++20 vvv
+STATIC_ASSERT(ranges::cbegin(initially_unbounded) == initially_unbounded);
 STATIC_ASSERT(ranges::cdata(initially_unbounded) == initially_unbounded);
+#endif // C++20
+
 int initially_unbounded[42];
 STATIC_ASSERT(ranges::begin(initially_unbounded) == initially_unbounded);
 STATIC_ASSERT(ranges::end(initially_unbounded) == initially_unbounded + ranges::size(initially_unbounded));
@@ -851,11 +875,9 @@ struct fancy_pointer {
 
     fancy_pointer() = default;
     fancy_pointer(std::nullptr_t);
-    // clang-format off
     template <class U>
         requires std::convertible_to<U*, T*>
     fancy_pointer(fancy_pointer<U>);
-    // clang-format on
 
     element_type& operator*() const;
     element_type& operator[](difference_type) const;
@@ -971,63 +993,99 @@ STATIC_ASSERT(!ranges::view<std::string_view const&>);
 
 STATIC_ASSERT(test_begin<std::span<int>, std::span<int>::iterator>());
 STATIC_ASSERT(test_end<std::span<int>, std::span<int>::iterator>());
-STATIC_ASSERT(test_cbegin<std::span<int>, std::span<int>::iterator>());
-STATIC_ASSERT(test_cend<std::span<int>, std::span<int>::iterator>());
 STATIC_ASSERT(test_rbegin<std::span<int>, std::reverse_iterator<std::span<int>::iterator>>());
 STATIC_ASSERT(test_rend<std::span<int>, std::reverse_iterator<std::span<int>::iterator>>());
-STATIC_ASSERT(test_crbegin<std::span<int>, std::reverse_iterator<std::span<int>::iterator>>());
-STATIC_ASSERT(test_crend<std::span<int>, std::reverse_iterator<std::span<int>::iterator>>());
 STATIC_ASSERT(test_size<std::span<int>, std::size_t>());
 STATIC_ASSERT(test_empty<std::span<int>, true>());
 STATIC_ASSERT(test_data<std::span<int>, int*>());
-STATIC_ASSERT(test_cdata<std::span<int>, int*>());
 STATIC_ASSERT(test_contiguous_range<std::span<int>>());
 STATIC_ASSERT(ranges::view<std::span<int>>);
 
+#if _HAS_CXX23 // behavior of span members differs in C++20 and C++23 modes
+STATIC_ASSERT(test_cbegin<std::span<int>, std::span<int>::const_iterator>());
+STATIC_ASSERT(test_cend<std::span<int>, std::span<int>::const_iterator>());
+STATIC_ASSERT(test_crbegin<std::span<int>, std::span<int>::const_reverse_iterator>());
+STATIC_ASSERT(test_crend<std::span<int>, std::span<int>::const_reverse_iterator>());
+STATIC_ASSERT(test_cdata<std::span<int>, const int*>());
+#else // ^^^ C++23 / C++20 vvv
+STATIC_ASSERT(test_cbegin<std::span<int>, std::span<int>::iterator>());
+STATIC_ASSERT(test_cend<std::span<int>, std::span<int>::iterator>());
+STATIC_ASSERT(test_crbegin<std::span<int>, std::reverse_iterator<std::span<int>::iterator>>());
+STATIC_ASSERT(test_crend<std::span<int>, std::reverse_iterator<std::span<int>::iterator>>());
+STATIC_ASSERT(test_cdata<std::span<int>, int*>());
+#endif // C++20
+
 STATIC_ASSERT(test_begin<std::span<int> const, std::span<int>::iterator>());
 STATIC_ASSERT(test_end<std::span<int> const, std::span<int>::iterator>());
-STATIC_ASSERT(test_cbegin<std::span<int> const, std::span<int>::iterator>());
-STATIC_ASSERT(test_cend<std::span<int> const, std::span<int>::iterator>());
 STATIC_ASSERT(test_rbegin<std::span<int> const, std::reverse_iterator<std::span<int>::iterator>>());
 STATIC_ASSERT(test_rend<std::span<int> const, std::reverse_iterator<std::span<int>::iterator>>());
-STATIC_ASSERT(test_crbegin<std::span<int> const, std::reverse_iterator<std::span<int>::iterator>>());
-STATIC_ASSERT(test_crend<std::span<int> const, std::reverse_iterator<std::span<int>::iterator>>());
 STATIC_ASSERT(test_size<std::span<int> const, std::size_t>());
 STATIC_ASSERT(test_empty<std::span<int> const, true>());
 STATIC_ASSERT(test_data<std::span<int> const, int*>());
-STATIC_ASSERT(test_cdata<std::span<int> const, int*>());
 STATIC_ASSERT(test_contiguous_range<std::span<int> const>());
 STATIC_ASSERT(!ranges::view<std::span<int> const>);
 
+#if _HAS_CXX23 // behavior of const span members differs in C++20 and C++23 modes
+STATIC_ASSERT(test_cbegin<std::span<int> const, std::span<int>::const_iterator>());
+STATIC_ASSERT(test_cend<std::span<int> const, std::span<int>::const_iterator>());
+STATIC_ASSERT(test_crbegin<std::span<int> const, std::span<int>::const_reverse_iterator>());
+STATIC_ASSERT(test_crend<std::span<int> const, std::span<int>::const_reverse_iterator>());
+STATIC_ASSERT(test_cdata<std::span<int> const, const int*>());
+#else // ^^^ C++23 / C++20 vvv
+STATIC_ASSERT(test_cbegin<std::span<int> const, std::span<int>::iterator>());
+STATIC_ASSERT(test_cend<std::span<int> const, std::span<int>::iterator>());
+STATIC_ASSERT(test_crbegin<std::span<int> const, std::reverse_iterator<std::span<int>::iterator>>());
+STATIC_ASSERT(test_crend<std::span<int> const, std::reverse_iterator<std::span<int>::iterator>>());
+STATIC_ASSERT(test_cdata<std::span<int> const, int*>());
+#endif // C++20
+
 STATIC_ASSERT(test_begin<std::span<int>&, std::span<int>::iterator>());
 STATIC_ASSERT(test_end<std::span<int>&, std::span<int>::iterator>());
-STATIC_ASSERT(test_cbegin<std::span<int>&, std::span<int>::iterator>());
-STATIC_ASSERT(test_cend<std::span<int>&, std::span<int>::iterator>());
 STATIC_ASSERT(test_rbegin<std::span<int>&, std::reverse_iterator<std::span<int>::iterator>>());
 STATIC_ASSERT(test_rend<std::span<int>&, std::reverse_iterator<std::span<int>::iterator>>());
-STATIC_ASSERT(test_crbegin<std::span<int>&, std::reverse_iterator<std::span<int>::iterator>>());
-STATIC_ASSERT(test_crend<std::span<int>&, std::reverse_iterator<std::span<int>::iterator>>());
 STATIC_ASSERT(test_size<std::span<int>&, std::size_t>());
 STATIC_ASSERT(test_empty<std::span<int>&, true>());
 STATIC_ASSERT(test_data<std::span<int>&, int*>());
-STATIC_ASSERT(test_cdata<std::span<int>&, int*>());
 STATIC_ASSERT(test_contiguous_range<std::span<int>&>());
 STATIC_ASSERT(!ranges::view<std::span<int>&>);
 
+#if _HAS_CXX23 // behavior of span& members differs in C++20 and C++23 modes
+STATIC_ASSERT(test_cbegin<std::span<int>&, std::span<int>::const_iterator>());
+STATIC_ASSERT(test_cend<std::span<int>&, std::span<int>::const_iterator>());
+STATIC_ASSERT(test_crbegin<std::span<int>&, std::span<int>::const_reverse_iterator>());
+STATIC_ASSERT(test_crend<std::span<int>&, std::span<int>::const_reverse_iterator>());
+STATIC_ASSERT(test_cdata<std::span<int>&, const int*>());
+#else // ^^^ C++23 / C++20 vvv
+STATIC_ASSERT(test_cbegin<std::span<int>&, std::span<int>::iterator>());
+STATIC_ASSERT(test_cend<std::span<int>&, std::span<int>::iterator>());
+STATIC_ASSERT(test_crbegin<std::span<int>&, std::reverse_iterator<std::span<int>::iterator>>());
+STATIC_ASSERT(test_crend<std::span<int>&, std::reverse_iterator<std::span<int>::iterator>>());
+STATIC_ASSERT(test_cdata<std::span<int>&, int*>());
+#endif // C++20
+
 STATIC_ASSERT(test_begin<std::span<int> const&, std::span<int>::iterator>());
 STATIC_ASSERT(test_end<std::span<int> const&, std::span<int>::iterator>());
-STATIC_ASSERT(test_cbegin<std::span<int> const&, std::span<int>::iterator>());
-STATIC_ASSERT(test_cend<std::span<int> const&, std::span<int>::iterator>());
 STATIC_ASSERT(test_rbegin<std::span<int> const&, std::reverse_iterator<std::span<int>::iterator>>());
 STATIC_ASSERT(test_rend<std::span<int> const&, std::reverse_iterator<std::span<int>::iterator>>());
-STATIC_ASSERT(test_crbegin<std::span<int> const&, std::reverse_iterator<std::span<int>::iterator>>());
-STATIC_ASSERT(test_crend<std::span<int> const&, std::reverse_iterator<std::span<int>::iterator>>());
 STATIC_ASSERT(test_size<std::span<int> const&, std::size_t>());
 STATIC_ASSERT(test_empty<std::span<int> const&, true>());
 STATIC_ASSERT(test_data<std::span<int> const&, int*>());
-STATIC_ASSERT(test_cdata<std::span<int> const&, int*>());
 STATIC_ASSERT(test_contiguous_range<std::span<int> const&>());
 STATIC_ASSERT(!ranges::view<std::span<int> const&>);
+
+#if _HAS_CXX23 // behavior of const span& members differs in C++20 and C++23 modes
+STATIC_ASSERT(test_cbegin<std::span<int> const&, std::span<int>::const_iterator>());
+STATIC_ASSERT(test_cend<std::span<int> const&, std::span<int>::const_iterator>());
+STATIC_ASSERT(test_crbegin<std::span<int> const&, std::span<int>::const_reverse_iterator>());
+STATIC_ASSERT(test_crend<std::span<int> const&, std::span<int>::const_reverse_iterator>());
+STATIC_ASSERT(test_cdata<std::span<int> const&, const int*>());
+#else // ^^^ C++23 / C++20 vvv
+STATIC_ASSERT(test_cbegin<std::span<int> const&, std::span<int>::iterator>());
+STATIC_ASSERT(test_cend<std::span<int> const&, std::span<int>::iterator>());
+STATIC_ASSERT(test_crbegin<std::span<int> const&, std::reverse_iterator<std::span<int>::iterator>>());
+STATIC_ASSERT(test_crend<std::span<int> const&, std::reverse_iterator<std::span<int>::iterator>>());
+STATIC_ASSERT(test_cdata<std::span<int> const&, int*>());
+#endif // C++20
 
 using valarray_int_iterator       = decltype(std::begin(std::declval<std::valarray<int>&>()));
 using const_valarray_int_iterator = decltype(std::begin(std::declval<const std::valarray<int>&>()));
@@ -1538,17 +1596,22 @@ namespace borrowed_range_testing {
 
 template <bool AllowNonConst, bool AllowConst, bool AllowSize>
 struct arbitrary_range {
-    arbitrary_range()                  = default;
-    arbitrary_range(arbitrary_range&&) = default;
+    arbitrary_range()                             = default;
+    arbitrary_range(arbitrary_range&&)            = default;
     arbitrary_range& operator=(arbitrary_range&&) = default;
 
-    int* begin() requires AllowNonConst;
-    int* end() requires AllowNonConst;
+    int* begin()
+        requires AllowNonConst;
+    int* end()
+        requires AllowNonConst;
 
-    int const* begin() const requires AllowConst;
-    int const* end() const requires AllowConst;
+    int const* begin() const
+        requires AllowConst;
+    int const* end() const
+        requires AllowConst;
 
-    unsigned char size() const requires AllowSize;
+    unsigned char size() const
+        requires AllowSize;
 };
 
 using mutable_unsized_range      = arbitrary_range<true, true, false>;
@@ -1560,8 +1623,8 @@ using immutable_sized_range      = arbitrary_range<false, true, true>;
 
 template <class Base>
 struct badsized_range : Base { // size() launches the missiles.
-    badsized_range()                 = default;
-    badsized_range(badsized_range&&) = default;
+    badsized_range()                            = default;
+    badsized_range(badsized_range&&)            = default;
     badsized_range& operator=(badsized_range&&) = default;
 
     [[noreturn]] int size() const {
@@ -1582,8 +1645,8 @@ constexpr bool ranges::disable_sized_range<badsized_range<T>> = true;
 
 // "strange" in that const-ness affects the iterator type
 struct strange_view {
-    strange_view()               = default;
-    strange_view(strange_view&&) = default;
+    strange_view()                          = default;
+    strange_view(strange_view&&)            = default;
     strange_view& operator=(strange_view&&) = default;
 
     int* begin();
@@ -1603,6 +1666,23 @@ struct strange_view5 : strange_view4, ranges::view_interface<strange_view5> {
 // Verify that specializations of view_interface do not inherit from view_base
 STATIC_ASSERT(!std::is_base_of_v<std::ranges::view_base, ranges::view_interface<strange_view4>>);
 STATIC_ASSERT(!std::is_base_of_v<std::ranges::view_base, ranges::view_interface<strange_view5>>);
+
+// Verify that enable_view<T&> or enable_view<T&&> is never true
+STATIC_ASSERT(ranges::enable_view<strange_view4>);
+STATIC_ASSERT(!ranges::enable_view<strange_view4&>);
+STATIC_ASSERT(!ranges::enable_view<const strange_view4&>);
+STATIC_ASSERT(!ranges::enable_view<strange_view4&&>);
+STATIC_ASSERT(!ranges::enable_view<const strange_view4&&>);
+
+// Verify that the derived-from-view_interface mechanism can handle uses of incomplete types whenever possible
+struct incomplet;
+
+template <class T>
+struct value_holder {
+    T t;
+};
+
+STATIC_ASSERT(!ranges::enable_view<value_holder<incomplet>*>);
 
 template <>
 inline constexpr bool ranges::enable_view<strange_view> = true;
@@ -1866,27 +1946,27 @@ namespace poison_pill_test {
 
 namespace unwrapped_begin_end {
     // Validate the iterator-unwrapping range access CPOs ranges::_Ubegin and ranges::_Uend
-    using test::CanCompare, test::CanDifference, test::Common, test::ProxyRef, test::Sized, test::IsWrapped;
+    using test::CanCompare, test::CanDifference, test::Common, test::ProxyRef, test::Sized, test::WrappedState;
 
-    template <IsWrapped Wrapped>
+    template <WrappedState IterWrapped, WrappedState SentWrapped = IterWrapped>
     struct range {
-        using I =
-            test::iterator<std::forward_iterator_tag, int, CanDifference::no, CanCompare::yes, ProxyRef::yes, Wrapped>;
-        using S = test::sentinel<int, Wrapped>;
+        using I = test::iterator<std::forward_iterator_tag, int, CanDifference::no, CanCompare::yes, ProxyRef::yes,
+            IterWrapped>;
+        using S = test::sentinel<int, SentWrapped>;
 
         I begin() const;
         S end() const;
     };
 
-    struct with_unchecked : range<IsWrapped::yes> {
+    struct with_unchecked : range<WrappedState::wrapped> {
         bool begin_called_ = false;
         bool end_called_   = false;
 
-        [[nodiscard]] constexpr range<IsWrapped::no>::I _Unchecked_begin() {
+        [[nodiscard]] constexpr range<WrappedState::unwrapped>::I _Unchecked_begin() {
             begin_called_ = true;
             return {};
         }
-        [[nodiscard]] constexpr range<IsWrapped::no>::S _Unchecked_end() {
+        [[nodiscard]] constexpr range<WrappedState::unwrapped>::S _Unchecked_end() {
             end_called_ = true;
             return {};
         }
@@ -1895,17 +1975,25 @@ namespace unwrapped_begin_end {
     constexpr bool test() {
         using std::same_as, ranges::_Ubegin, ranges::_Uend;
 
-        range<IsWrapped::no> not_wrapped;
-        STATIC_ASSERT(same_as<decltype(_Ubegin(not_wrapped)), range<IsWrapped::no>::I>);
-        STATIC_ASSERT(same_as<decltype(_Uend(not_wrapped)), range<IsWrapped::no>::S>);
+        range<WrappedState::unwrapped> unwrapped;
+        STATIC_ASSERT(same_as<decltype(_Ubegin(unwrapped)), range<WrappedState::unwrapped>::I>);
+        STATIC_ASSERT(same_as<decltype(_Uend(unwrapped)), range<WrappedState::unwrapped>::S>);
 
-        range<IsWrapped::yes> wrapped;
-        STATIC_ASSERT(same_as<decltype(_Ubegin(wrapped)), range<IsWrapped::no>::I>);
-        STATIC_ASSERT(same_as<decltype(_Uend(wrapped)), range<IsWrapped::no>::S>);
+        range<WrappedState::wrapped> wrapped;
+        STATIC_ASSERT(same_as<decltype(_Ubegin(wrapped)), range<WrappedState::unwrapped>::I>);
+        STATIC_ASSERT(same_as<decltype(_Uend(wrapped)), range<WrappedState::unwrapped>::S>);
+
+        range<WrappedState::wrapped, WrappedState::ignorant> it_wrapped_se_ignorant;
+        STATIC_ASSERT(same_as<decltype(_Ubegin(it_wrapped_se_ignorant)), range<WrappedState::wrapped>::I>);
+        STATIC_ASSERT(same_as<decltype(_Uend(it_wrapped_se_ignorant)), range<WrappedState::ignorant>::S>);
+
+        range<WrappedState::ignorant, WrappedState::wrapped> it_ignorant_se_wrapped;
+        STATIC_ASSERT(same_as<decltype(_Ubegin(it_ignorant_se_wrapped)), range<WrappedState::ignorant>::I>);
+        STATIC_ASSERT(same_as<decltype(_Uend(it_ignorant_se_wrapped)), range<WrappedState::wrapped>::S>);
 
         with_unchecked uncheckable;
-        STATIC_ASSERT(same_as<decltype(_Ubegin(uncheckable)), range<IsWrapped::no>::I>);
-        STATIC_ASSERT(same_as<decltype(_Uend(uncheckable)), range<IsWrapped::no>::S>);
+        STATIC_ASSERT(same_as<decltype(_Ubegin(uncheckable)), range<WrappedState::unwrapped>::I>);
+        STATIC_ASSERT(same_as<decltype(_Uend(uncheckable)), range<WrappedState::unwrapped>::S>);
         (void) _Ubegin(uncheckable);
         assert(uncheckable.begin_called_);
         (void) _Uend(uncheckable);

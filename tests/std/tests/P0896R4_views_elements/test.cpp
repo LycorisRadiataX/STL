@@ -24,9 +24,7 @@ template <class Rng, class V = views::all_t<Rng>>
 using pipeline_t = ranges::elements_view<V, 0>;
 
 template <class Rng>
-concept CanViewElements = requires(Rng&& r) {
-    views::elements<0>(forward<Rng>(r));
-};
+concept CanViewElements = requires(Rng&& r) { views::elements<0>(forward<Rng>(r)); };
 
 constexpr P some_pairs[]        = {{0, -1}, {1, -2}, {2, -3}, {3, -4}, {4, -5}, {5, -6}, {6, -7}, {7, -8}};
 constexpr int expected_keys[]   = {0, 1, 2, 3, 4, 5, 6, 7};
@@ -36,7 +34,7 @@ template <ranges::input_range Rng>
 constexpr bool test_one(Rng&& rng) {
     using ranges::elements_view, ranges::bidirectional_range, ranges::common_range, ranges::contiguous_range,
         ranges::enable_borrowed_range, ranges::forward_range, ranges::input_range, ranges::iterator_t, ranges::prev,
-        ranges::random_access_range, ranges::range, ranges::range_reference_t, ranges::sentinel_t,
+        ranges::random_access_range, ranges::range, ranges::range_reference_t, ranges::sentinel_t, ranges::sized_range,
         ranges::borrowed_range;
 
     using V = views::all_t<Rng>;
@@ -157,7 +155,7 @@ constexpr bool test_one(Rng&& rng) {
     const bool is_empty = ranges::empty(expected_keys);
 
     // Validate view_interface::empty and operator bool
-    STATIC_ASSERT(CanMemberEmpty<R> == forward_range<Rng>);
+    STATIC_ASSERT(CanMemberEmpty<R> == (sized_range<Rng> || forward_range<Rng>) );
     STATIC_ASSERT(CanBool<R> == CanEmpty<R>);
     if constexpr (CanMemberEmpty<R>) {
         assert(r.empty() == is_empty);
@@ -170,7 +168,7 @@ constexpr bool test_one(Rng&& rng) {
         }
     }
 
-    STATIC_ASSERT(CanMemberEmpty<const R> == forward_range<const Rng>);
+    STATIC_ASSERT(CanMemberEmpty<const R> == (sized_range<const Rng> || forward_range<const Rng>) );
     STATIC_ASSERT(CanBool<const R> == CanEmpty<const R>);
     if constexpr (CanMemberEmpty<const R>) {
         assert(as_const(r).empty() == is_empty);
@@ -186,11 +184,11 @@ constexpr bool test_one(Rng&& rng) {
     // Validate content
     assert(ranges::equal(r, expected_keys));
 
-    // Validate keys_view and values_view
-    STATIC_ASSERT(same_as<ranges::keys_view<Rng>, R>);
-    STATIC_ASSERT(same_as<ranges::values_view<Rng>, elements_view<V, 1>>);
+    // Validate views::keys and views::values
+    STATIC_ASSERT(same_as<decltype(views::keys(rng)), R>);
+    STATIC_ASSERT(same_as<decltype(views::values(rng)), elements_view<V, 1>>);
     if constexpr (forward_range<Rng> && is_lvalue_reference_v<Rng>) {
-        assert(ranges::equal(ranges::values_view<Rng>{rng}, expected_values));
+        assert(ranges::equal(views::values(rng), expected_values));
     }
 
     // Validate elements_view::begin
@@ -396,10 +394,12 @@ int main() {
         instantiation_test();
     }
 
+#ifndef _M_CEE // TRANSITION, VSO-1666180
     { // Validate a view borrowed range
         constexpr auto v = views::iota(0ull, ranges::size(expected_keys))
                          | views::transform([](auto i) { return make_pair(expected_keys[i], expected_values[i]); });
         STATIC_ASSERT(test_one(v));
         test_one(v);
     }
+#endif // _M_CEE
 }

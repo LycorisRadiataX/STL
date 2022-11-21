@@ -9,8 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <assert.h>
 #include <bitset>
+#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <cstdio>
@@ -62,23 +62,23 @@ struct DoNotInstantiate {
 };
 
 struct Immobile {
-    Immobile()                = default;
-    Immobile(Immobile const&) = delete;
+    Immobile()                           = default;
+    Immobile(Immobile const&)            = delete;
     Immobile& operator=(Immobile const&) = delete;
 };
 
 struct MoveOnly {
-    MoveOnly()           = default;
-    MoveOnly(MoveOnly&&) = default;
+    MoveOnly()                      = default;
+    MoveOnly(MoveOnly&&)            = default;
     MoveOnly& operator=(MoveOnly&&) = default;
 };
 
 struct CopyOnlyAbomination {
-    CopyOnlyAbomination()                           = default;
-    CopyOnlyAbomination(CopyOnlyAbomination const&) = default;
-    CopyOnlyAbomination(CopyOnlyAbomination&&)      = delete;
+    CopyOnlyAbomination()                                      = default;
+    CopyOnlyAbomination(CopyOnlyAbomination const&)            = default;
+    CopyOnlyAbomination(CopyOnlyAbomination&&)                 = delete;
     CopyOnlyAbomination& operator=(CopyOnlyAbomination const&) = default;
-    CopyOnlyAbomination& operator=(CopyOnlyAbomination&&) = delete;
+    CopyOnlyAbomination& operator=(CopyOnlyAbomination&&)      = delete;
 };
 
 struct CopyableType {
@@ -301,7 +301,6 @@ namespace test_same_as {
     STATIC_ASSERT(same_as<void() const, void() const>);
     STATIC_ASSERT(same_as<void() &, void() &>);
 
-    // clang-format off
     // Verify that `same_as<T, U>` subsumes `same_as<U, T>` (note reversed argument order)
     template <class T, class U>
         requires same_as<U, T>
@@ -314,7 +313,6 @@ namespace test_same_as {
     constexpr bool f() {
         return true;
     }
-    // clang-format on
 
     STATIC_ASSERT(!f<int*, int*>());
     STATIC_ASSERT(!f<void, void>());
@@ -536,6 +534,15 @@ namespace test_convertible_to {
     STATIC_ASSERT(convertible_to<char_array, ConvertsFrom<char const*>>);
     STATIC_ASSERT(convertible_to<char (&)[], ConvertsFrom<char const*>>);
 
+    // volatile array glvalues
+#if defined(__clang__) || defined(__EDG__) // TRANSITION, DevCom-1627396
+    STATIC_ASSERT(convertible_to<int volatile (&)[42], int volatile (&)[42]>);
+    STATIC_ASSERT(convertible_to<int volatile (&)[42][13], int volatile (&)[42][13]>);
+#endif // TRANSITION, DevCom-1627396
+    STATIC_ASSERT(convertible_to<int volatile (&&)[42], int volatile (&&)[42]>);
+    STATIC_ASSERT(convertible_to<int volatile (&&)[42][13], int volatile (&&)[42][13]>);
+
+
     // char
     STATIC_ASSERT(!test<char, void>());
     STATIC_ASSERT(!test<char, fn>());
@@ -709,6 +716,14 @@ namespace test_common_reference_with {
     STATIC_ASSERT(!test<Interconvertible<0>&, Interconvertible<1> const&>());
 
     STATIC_ASSERT(test<SimpleBase, ConvertsFrom<int, SimpleBase>>());
+
+    STATIC_ASSERT(test<int volatile&, int volatile&>());
+#if defined(__clang__) || defined(__EDG__) // TRANSITION, DevCom-1627396
+    STATIC_ASSERT(test<int volatile (&)[42], int volatile (&)[42]>());
+    STATIC_ASSERT(test<int volatile (&)[42][13], int volatile (&)[42][13]>());
+#endif // TRANSITION, DevCom-1627396
+    STATIC_ASSERT(test<int volatile (&&)[42], int volatile (&&)[42]>());
+    STATIC_ASSERT(test<int volatile (&&)[42][13], int volatile (&&)[42][13]>());
 } // namespace test_common_reference_with
 
 namespace test_common_with {
@@ -793,7 +808,7 @@ namespace test_integral_concepts {
         enum class is { not_integral, integral, signed_integral, unsigned_integral, ull };
 
         template <class T>
-        constexpr is f(T&&) {
+        constexpr is f(T) {
             return is::not_integral;
         }
         template <integral T>
@@ -1310,10 +1325,10 @@ namespace test_constructible_from {
 
     STATIC_ASSERT(test<void (&)(), void()>());
     STATIC_ASSERT(test<void (&)(), void (&)()>());
-    STATIC_ASSERT(test<void (&)(), void(&&)()>());
-    STATIC_ASSERT(test<void(&&)(), void()>());
-    STATIC_ASSERT(test<void(&&)(), void (&)()>());
-    STATIC_ASSERT(test<void(&&)(), void(&&)()>());
+    STATIC_ASSERT(test<void (&)(), void (&&)()>());
+    STATIC_ASSERT(test<void (&&)(), void()>());
+    STATIC_ASSERT(test<void (&&)(), void (&)()>());
+    STATIC_ASSERT(test<void (&&)(), void (&&)()>());
 
     STATIC_ASSERT(test<int&&, double&>());
 
@@ -1543,9 +1558,7 @@ namespace test_default_initializable {
         int x;
     };
     STATIC_ASSERT(default_initializable<S>);
-#if defined(MSVC_INTERNAL_TESTING) || defined(__clang__) || defined(__EDG__) // TRANSITION, DevCom-952724
     STATIC_ASSERT(!default_initializable<S const>);
-#endif // TRANSITION, DevCom-952724
 
     // Also test GH-1603 "default_initializable accepts types that are not default-initializable"
 #if defined(__clang__) || defined(__EDG__) // TRANSITION, DevCom-1326684
@@ -1610,7 +1623,6 @@ namespace test_move_constructible {
 namespace test_ranges_swap {
     namespace ranges = std::ranges;
 
-    // clang-format off
     template <class T, class U = T>
     constexpr bool can_swap = false;
     template <class T, class U>
@@ -1622,7 +1634,6 @@ namespace test_ranges_swap {
     template <class T, class U>
         requires can_swap<T, U>
     constexpr bool can_nothrow_swap<T, U> = noexcept(ranges::swap(std::declval<T>(), std::declval<U>()));
-    // clang-format on
 
     STATIC_ASSERT(!can_swap<void>);
     STATIC_ASSERT(!can_swap<void const>);
@@ -1642,10 +1653,10 @@ namespace test_ranges_swap {
     STATIC_ASSERT(!can_swap<int()>);
     STATIC_ASSERT(!can_swap<int() const>);
     STATIC_ASSERT(!can_swap<int (&)()>);
-    STATIC_ASSERT(!can_swap<int(&&)()>);
+    STATIC_ASSERT(!can_swap<int (&&)()>);
 
     STATIC_ASSERT(!can_swap<int (&)[]>);
-    STATIC_ASSERT(!can_swap<int(&&)[]>);
+    STATIC_ASSERT(!can_swap<int (&&)[]>);
 
     STATIC_ASSERT(can_nothrow_swap<int (&)[42]>);
     STATIC_ASSERT(can_nothrow_swap<int (&)[42][13]>);
@@ -1657,10 +1668,10 @@ namespace test_ranges_swap {
     STATIC_ASSERT(can_nothrow_swap<int volatile (&)[42][13]>);
     STATIC_ASSERT(!can_swap<int const volatile (&)[42][13]>);
 
-    STATIC_ASSERT(!can_swap<int(&&)[42]>);
-    STATIC_ASSERT(!can_swap<int(&&)[42][13]>);
+    STATIC_ASSERT(!can_swap<int (&&)[42]>);
+    STATIC_ASSERT(!can_swap<int (&&)[42][13]>);
 
-    STATIC_ASSERT(!can_swap<int(&&)[42][13], int(&&)[13][42]>);
+    STATIC_ASSERT(!can_swap<int (&&)[42][13], int (&&)[13][42]>);
 
     struct SemithrowCopyOnly {
         SemithrowCopyOnly()                                  = default;
@@ -1686,31 +1697,31 @@ namespace test_ranges_swap {
     STATIC_ASSERT(!can_nothrow_swap<SemithrowMoveOnly (&)[42]>);
 
     struct NothrowMoveOnly {
-        NothrowMoveOnly()                           = default;
-        NothrowMoveOnly(NothrowMoveOnly&&) noexcept = default;
+        NothrowMoveOnly()                                      = default;
+        NothrowMoveOnly(NothrowMoveOnly&&) noexcept            = default;
         NothrowMoveOnly& operator=(NothrowMoveOnly&&) noexcept = default;
     };
     STATIC_ASSERT(can_nothrow_swap<NothrowMoveOnly&>);
     STATIC_ASSERT(can_nothrow_swap<NothrowMoveOnly (&)[42]>);
 
     struct NotMoveConstructible {
-        NotMoveConstructible()                       = default;
-        NotMoveConstructible(NotMoveConstructible&&) = delete;
+        NotMoveConstructible()                                  = default;
+        NotMoveConstructible(NotMoveConstructible&&)            = delete;
         NotMoveConstructible& operator=(NotMoveConstructible&&) = default;
     };
     STATIC_ASSERT(!can_swap<NotMoveConstructible&>);
     STATIC_ASSERT(!can_swap<NotMoveConstructible (&)[42]>);
 
     struct NotMoveAssignable {
-        NotMoveAssignable(NotMoveAssignable&&) = default;
+        NotMoveAssignable(NotMoveAssignable&&)            = default;
         NotMoveAssignable& operator=(NotMoveAssignable&&) = delete;
     };
     STATIC_ASSERT(!can_swap<NotMoveAssignable&>);
     STATIC_ASSERT(!can_swap<NotMoveAssignable (&)[42]>);
 
     struct ImmobileNothrowSwap {
-        ImmobileNothrowSwap()                      = default;
-        ImmobileNothrowSwap(ImmobileNothrowSwap&&) = delete;
+        ImmobileNothrowSwap()                                 = default;
+        ImmobileNothrowSwap(ImmobileNothrowSwap&&)            = delete;
         ImmobileNothrowSwap& operator=(ImmobileNothrowSwap&&) = delete;
         friend void swap(ImmobileNothrowSwap&, ImmobileNothrowSwap&) noexcept {}
     };
@@ -1737,13 +1748,13 @@ namespace test_ranges_swap {
     STATIC_ASSERT(!can_swap<Unswappable (&)[42][13]>);
     STATIC_ASSERT(!can_swap<Unswappable (&)[42][13], Unswappable (&)[13][42]>);
 
-    STATIC_ASSERT(!can_swap<Unswappable(&&)[42]>);
-    STATIC_ASSERT(!can_swap<Unswappable(&&)[42][13]>);
-    STATIC_ASSERT(!can_swap<Unswappable(&&)[42][13], Unswappable(&&)[13][42]>);
+    STATIC_ASSERT(!can_swap<Unswappable (&&)[42]>);
+    STATIC_ASSERT(!can_swap<Unswappable (&&)[42][13]>);
+    STATIC_ASSERT(!can_swap<Unswappable (&&)[42][13], Unswappable (&&)[13][42]>);
 
     // The wording allows customization of swap for unions as well
     union U {
-        U(U const&) = delete;
+        U(U const&)            = delete;
         U& operator=(U const&) = delete;
 
         friend void swap(U&, U&) {}
@@ -1793,7 +1804,7 @@ namespace test_ranges_swap {
         friend constexpr void swap(DoNotUseFallback&, DoNotUseFallback&) noexcept {}
     };
 
-    constexpr auto for_each_232 = [](auto (&array)[2][3][2], auto f) {
+    constexpr auto for_each_232 = [](auto(&array)[2][3][2], auto f) {
         for (int i = 0; i < 2; ++i) {
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 2; ++k) {
@@ -2024,6 +2035,11 @@ namespace test_swappable_with {
     STATIC_ASSERT(!test<int (&)[3][4][1][2], int (&)[4][4][1][2]>());
 
     STATIC_ASSERT(test<int (&)[2][2], int (&)[2][2]>());
+
+#if defined(__clang__) || defined(__EDG__) // TRANSITION, DevCom-1627396
+    STATIC_ASSERT(test<int volatile (&)[4], int volatile (&)[4]>());
+    STATIC_ASSERT(test<int volatile (&)[3][4], int volatile (&)[3][4]>());
+#endif // TRANSITION, DevCom-1627396
 
     STATIC_ASSERT(test<MovableFriendSwap, MovableFriendSwap>() == is_permissive);
     STATIC_ASSERT(test<MovableFriendSwap&, MovableFriendSwap&>());
@@ -2660,8 +2676,8 @@ namespace test_totally_ordered_with {
             STATIC_ASSERT(totally_ordered_with<T, U const&&> == result);
         }
 
-        if constexpr (!std::is_same_v<T,
-                          std::add_lvalue_reference_t<T>> && !std::is_same_v<U, std::add_lvalue_reference_t<U>>) {
+        if constexpr (!std::is_same_v<T, std::add_lvalue_reference_t<T>>
+                      && !std::is_same_v<U, std::add_lvalue_reference_t<U>>) {
             STATIC_ASSERT(totally_ordered_with<T&, U&> == result);
             STATIC_ASSERT(totally_ordered_with<T const&, U&> == result);
             STATIC_ASSERT(totally_ordered_with<T&&, U&> == result);
@@ -2850,10 +2866,12 @@ namespace test_invocable_concepts {
 #define MCALLCONV __cdecl
 #include "invocable_cc.hpp"
 
+#ifndef _M_CEE // avoid warning C4561: '__fastcall' incompatible with the '/clr' option: converting to '__stdcall'
 #define NAME      test_fast_fast
 #define CALLCONV  __fastcall
 #define MCALLCONV __fastcall
 #include "invocable_cc.hpp"
+#endif // _M_CEE
 
 #define NAME      test_std_std
 #define CALLCONV  __stdcall
@@ -2865,12 +2883,14 @@ namespace test_invocable_concepts {
 #define MCALLCONV __thiscall
 #include "invocable_cc.hpp"
 
+#ifndef _M_CEE // avoid warning C4575: '__vectorcall' incompatible with the '/clr' option: converting to '__stdcall'
 #if !defined(_M_ARM) && !defined(_M_ARM64)
 #define NAME      test_vector_vector
 #define CALLCONV  __vectorcall
 #define MCALLCONV __vectorcall
 #include "invocable_cc.hpp"
 #endif // ^^^ !ARM && !ARM64 ^^^
+#endif // _M_CEE
 
 } // namespace test_invocable_concepts
 
@@ -2980,316 +3000,316 @@ namespace test_predicate {
                 STATIC_ASSERT(predicate<Fn, CT&>);
             }
         }
-        {// N4849 [func.require]/1.7: "f(t_1, t_2, ..., t_N) in all other cases"
-            {// function pointer
-                using Fp = Bool(*)(tag&, int);
-        STATIC_ASSERT(predicate<Fp, tag&, int>); // TRANSITION, clang-format damage (not yet reported)
-        STATIC_ASSERT(predicate<Fp, DerivesFrom<tag>&, int>);
-        STATIC_ASSERT(!predicate<Fp, tag const&, int>);
-        STATIC_ASSERT(!predicate<Fp>);
-        STATIC_ASSERT(!predicate<Fp, tag&>);
+        { // N4849 [func.require]/1.7: "f(t_1, t_2, ..., t_N) in all other cases"
+            { // function pointer
+                using Fp = Bool (*)(tag&, int);
+                STATIC_ASSERT(predicate<Fp, tag&, int>);
+                STATIC_ASSERT(predicate<Fp, DerivesFrom<tag>&, int>);
+                STATIC_ASSERT(!predicate<Fp, tag const&, int>);
+                STATIC_ASSERT(!predicate<Fp>);
+                STATIC_ASSERT(!predicate<Fp, tag&>);
+            }
+            { // function reference
+                using Fp = Bool (&)(tag&, int);
+                STATIC_ASSERT(predicate<Fp, tag&, int>);
+                STATIC_ASSERT(predicate<Fp, DerivesFrom<tag>&, int>);
+                STATIC_ASSERT(!predicate<Fp, tag const&, int>);
+                STATIC_ASSERT(!predicate<Fp>);
+                STATIC_ASSERT(!predicate<Fp, tag&>);
+            }
+            { // function object
+                using Fn = NotCallableWithInt;
+                STATIC_ASSERT(predicate<Fn, tag>);
+                STATIC_ASSERT(!predicate<Fn, int>);
+            }; // TRANSITION, semicolon needed to make clang-format happy (LLVM-48305)
+        }
+
+        { // function object
+            STATIC_ASSERT(predicate<S, int>);
+            STATIC_ASSERT(predicate<S&, unsigned char, int&>);
+            STATIC_ASSERT(predicate<S const&, unsigned char, int&>);
+            STATIC_ASSERT(!predicate<S volatile&, unsigned char, int&>);
+            STATIC_ASSERT(!predicate<S const volatile&, unsigned char, int&>);
+
+            STATIC_ASSERT(predicate<ImplicitTo<bool (*)(long)>, int>);
+            STATIC_ASSERT(predicate<ImplicitTo<bool (*)(long)>, char>);
+            STATIC_ASSERT(predicate<ImplicitTo<bool (*)(long)>, float>);
+            STATIC_ASSERT(!predicate<ImplicitTo<bool (*)(long)>, char const*>);
+            STATIC_ASSERT(!predicate<ImplicitTo<bool (*)(long)>, S const&>);
+
+            auto omega_mu = [x = 42](int i, double) { return x == i; };
+            STATIC_ASSERT(predicate<decltype((omega_mu)), int, double>);
+            STATIC_ASSERT(predicate<decltype((omega_mu)), double, int>);
+            STATIC_ASSERT(predicate<decltype((omega_mu)), char, char>);
+            STATIC_ASSERT(!predicate<decltype((omega_mu))>);
+            STATIC_ASSERT(!predicate<decltype((omega_mu)), char const*, double>);
+            STATIC_ASSERT(!predicate<decltype((omega_mu)), double, char const*>);
+        }
+
+        { // pointer to function
+            using RF0  = bool (&)();
+            using RF1  = bool* (&) (int);
+            using RF2  = bool& (&) (int, int);
+            using RF3  = bool const& (&) (int, int, int);
+            using RF4  = bool (&)(int, ...);
+            using PF0  = bool (*)();
+            using PF1  = bool* (*) (int);
+            using PF2  = bool& (*) (int, int);
+            using PF3  = bool const& (*) (int, int, int);
+            using PF4  = bool (*)(int, ...);
+            using RPF0 = bool (*&)();
+            using RPF1 = bool* (*&) (int);
+            using RPF2 = bool& (*&) (int, int);
+            using RPF3 = bool const& (*&) (int, int, int);
+            using RPF4 = bool (*&)(int, ...);
+            STATIC_ASSERT(predicate<RF0>);
+            STATIC_ASSERT(predicate<RF1, int>);
+            STATIC_ASSERT(predicate<RF2, int, long>);
+            STATIC_ASSERT(predicate<RF3, int, long, int>);
+            STATIC_ASSERT(predicate<RF4, int, float, void*>);
+            STATIC_ASSERT(predicate<PF0>);
+            STATIC_ASSERT(predicate<PF1, int>);
+            STATIC_ASSERT(predicate<PF2, int, long>);
+            STATIC_ASSERT(predicate<PF3, int, long, int>);
+            STATIC_ASSERT(predicate<PF4, int, float, void*>);
+            STATIC_ASSERT(predicate<RPF0>);
+            STATIC_ASSERT(predicate<RPF1, int>);
+            STATIC_ASSERT(predicate<RPF2, int, long>);
+            STATIC_ASSERT(predicate<RPF3, int, long, int>);
+            STATIC_ASSERT(predicate<RPF4, int, float, void*>);
+        }
+
+        { // pointer to member function
+            using PMF0  = Bool (S::*)();
+            using PMF1  = Bool (S::*)(long);
+            using PMF2  = Bool& (S::*) (long, int);
+            using PMF1P = Bool const& (S::*) (int, ...);
+            STATIC_ASSERT(predicate<PMF0, S>);
+            STATIC_ASSERT(predicate<PMF0, S&>);
+            STATIC_ASSERT(predicate<PMF0, S*>);
+            STATIC_ASSERT(predicate<PMF0, S*&>);
+            STATIC_ASSERT(predicate<PMF0, std::reference_wrapper<S>>);
+            STATIC_ASSERT(predicate<PMF0, std::reference_wrapper<S> const&>);
+            STATIC_ASSERT(predicate<PMF0, std::reference_wrapper<DerivesFrom<S>>>);
+            STATIC_ASSERT(predicate<PMF0, std::reference_wrapper<DerivesFrom<S>> const&>);
+            STATIC_ASSERT(predicate<PMF0, std::unique_ptr<S>>);
+            STATIC_ASSERT(predicate<PMF0, std::unique_ptr<DerivesFrom<S>>>);
+            STATIC_ASSERT(!predicate<PMF0, S const&>);
+            STATIC_ASSERT(!predicate<PMF0, S volatile&>);
+            STATIC_ASSERT(!predicate<PMF0, S const volatile&>);
+            STATIC_ASSERT(!predicate<PMF0, NotDerived&>);
+            STATIC_ASSERT(!predicate<PMF0, NotDerived const&>);
+            STATIC_ASSERT(!predicate<PMF0, std::unique_ptr<S const>>);
+            STATIC_ASSERT(!predicate<PMF0, std::reference_wrapper<S const>>);
+            STATIC_ASSERT(!predicate<PMF0, std::reference_wrapper<NotDerived>>);
+            STATIC_ASSERT(!predicate<PMF0, std::unique_ptr<NotDerived>>);
+
+            STATIC_ASSERT(predicate<PMF1, S, int>);
+            STATIC_ASSERT(predicate<PMF1, S&, int>);
+            STATIC_ASSERT(predicate<PMF1, S*, int>);
+            STATIC_ASSERT(predicate<PMF1, S*&, int>);
+            STATIC_ASSERT(predicate<PMF1, std::unique_ptr<S>, int>);
+            STATIC_ASSERT(predicate<PMF1, std::unique_ptr<DerivesFrom<S>>, int>);
+            STATIC_ASSERT(predicate<PMF1, std::reference_wrapper<S>, int>);
+            STATIC_ASSERT(predicate<PMF1, std::reference_wrapper<S> const&, int>);
+            STATIC_ASSERT(predicate<PMF1, std::reference_wrapper<DerivesFrom<S>>, int>);
+            STATIC_ASSERT(predicate<PMF1, std::reference_wrapper<DerivesFrom<S>> const&, int>);
+            STATIC_ASSERT(!predicate<PMF1, S const&, int>);
+            STATIC_ASSERT(!predicate<PMF1, S volatile&, int>);
+            STATIC_ASSERT(!predicate<PMF1, S const volatile&, int>);
+            STATIC_ASSERT(!predicate<PMF1, NotDerived&, int>);
+            STATIC_ASSERT(!predicate<PMF1, NotDerived const&, int>);
+            STATIC_ASSERT(!predicate<PMF1, std::unique_ptr<S const>, int>);
+            STATIC_ASSERT(!predicate<PMF1, std::reference_wrapper<S const>, int>);
+            STATIC_ASSERT(!predicate<PMF1, std::reference_wrapper<NotDerived>, int>);
+            STATIC_ASSERT(!predicate<PMF1, std::unique_ptr<NotDerived>, int>);
+
+            STATIC_ASSERT(predicate<PMF2, S, int, int>);
+            STATIC_ASSERT(predicate<PMF2, S&, int, int>);
+            STATIC_ASSERT(predicate<PMF2, S*, int, int>);
+            STATIC_ASSERT(predicate<PMF2, S*&, int, int>);
+            STATIC_ASSERT(predicate<PMF2, std::unique_ptr<S>, int, int>);
+            STATIC_ASSERT(predicate<PMF2, std::unique_ptr<DerivesFrom<S>>, int, int>);
+            STATIC_ASSERT(predicate<PMF2, std::reference_wrapper<S>, int, int>);
+            STATIC_ASSERT(predicate<PMF2, std::reference_wrapper<S> const&, int, int>);
+            STATIC_ASSERT(predicate<PMF2, std::reference_wrapper<DerivesFrom<S>>, int, int>);
+            STATIC_ASSERT(predicate<PMF2, std::reference_wrapper<DerivesFrom<S>> const&, int, int>);
+            STATIC_ASSERT(!predicate<PMF2, S const&, int, int>);
+            STATIC_ASSERT(!predicate<PMF2, S volatile&, int, int>);
+            STATIC_ASSERT(!predicate<PMF2, S const volatile&, int, int>);
+            STATIC_ASSERT(!predicate<PMF2, std::unique_ptr<S const>, int, int>);
+            STATIC_ASSERT(!predicate<PMF2, std::reference_wrapper<S const>, int, int>);
+            STATIC_ASSERT(!predicate<PMF2, NotDerived const&, int, int>);
+            STATIC_ASSERT(!predicate<PMF2, std::reference_wrapper<NotDerived>, int, int>);
+            STATIC_ASSERT(!predicate<PMF2, std::unique_ptr<NotDerived>, int, int>);
+
+            STATIC_ASSERT(predicate<PMF1P, S&, int>);
+            STATIC_ASSERT(predicate<PMF1P, S&, int, long>);
+
+            using PMF0C  = bool (S::*)() const;
+            using PMF1C  = bool (S::*)(long) const;
+            using PMF2C  = bool (S::*)(long, int) const;
+            using PMF1PC = bool const& (S::*) (int, ...) const;
+            STATIC_ASSERT(predicate<PMF0C, S>);
+            STATIC_ASSERT(predicate<PMF0C, S&>);
+            STATIC_ASSERT(predicate<PMF0C, S const&>);
+            STATIC_ASSERT(predicate<PMF0C, S*>);
+            STATIC_ASSERT(predicate<PMF0C, S const*>);
+            STATIC_ASSERT(predicate<PMF0C, S*&>);
+            STATIC_ASSERT(predicate<PMF0C, S const*&>);
+            STATIC_ASSERT(predicate<PMF0C, std::unique_ptr<S>>);
+            STATIC_ASSERT(predicate<PMF0C, std::unique_ptr<DerivesFrom<S>>>);
+            STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<S>>);
+            STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<S const>>);
+            STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<S> const&>);
+            STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<S const> const&>);
+            STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<DerivesFrom<S>>>);
+            STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<DerivesFrom<S> const>>);
+            STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<DerivesFrom<S>> const&>);
+            STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<DerivesFrom<S> const> const&>);
+            STATIC_ASSERT(!predicate<PMF0C, S volatile&>);
+            STATIC_ASSERT(!predicate<PMF0C, S const volatile&>);
+
+            STATIC_ASSERT(predicate<PMF1C, S, int>);
+            STATIC_ASSERT(predicate<PMF1C, S&, int>);
+            STATIC_ASSERT(predicate<PMF1C, S const&, int>);
+            STATIC_ASSERT(predicate<PMF1C, S*, int>);
+            STATIC_ASSERT(predicate<PMF1C, S const*, int>);
+            STATIC_ASSERT(predicate<PMF1C, S*&, int>);
+            STATIC_ASSERT(predicate<PMF1C, S const*&, int>);
+            STATIC_ASSERT(predicate<PMF1C, std::unique_ptr<S>, int>);
+            STATIC_ASSERT(!predicate<PMF1C, S volatile&, int>);
+            STATIC_ASSERT(!predicate<PMF1C, S const volatile&, int>);
+
+            STATIC_ASSERT(predicate<PMF2C, S, int, int>);
+            STATIC_ASSERT(predicate<PMF2C, S&, int, int>);
+            STATIC_ASSERT(predicate<PMF2C, S const&, int, int>);
+            STATIC_ASSERT(predicate<PMF2C, S*, int, int>);
+            STATIC_ASSERT(predicate<PMF2C, S const*, int, int>);
+            STATIC_ASSERT(predicate<PMF2C, S*&, int, int>);
+            STATIC_ASSERT(predicate<PMF2C, S const*&, int, int>);
+            STATIC_ASSERT(predicate<PMF2C, std::unique_ptr<S>, int, int>);
+            STATIC_ASSERT(!predicate<PMF2C, S volatile&, int, int>);
+            STATIC_ASSERT(!predicate<PMF2C, S const volatile&, int, int>);
+
+            STATIC_ASSERT(predicate<PMF1PC, S&, int>);
+            STATIC_ASSERT(predicate<PMF1PC, S&, int, long>);
+
+            using PMF0V  = bool (S::*)() volatile;
+            using PMF1V  = bool (S::*)(long) volatile;
+            using PMF2V  = bool (S::*)(long, int) volatile;
+            using PMF1PV = bool const& (S::*) (int, ...) volatile;
+            STATIC_ASSERT(predicate<PMF0V, S>);
+            STATIC_ASSERT(predicate<PMF0V, S&>);
+            STATIC_ASSERT(predicate<PMF0V, S volatile&>);
+            STATIC_ASSERT(predicate<PMF0V, S*>);
+            STATIC_ASSERT(predicate<PMF0V, S volatile*>);
+            STATIC_ASSERT(predicate<PMF0V, S*&>);
+            STATIC_ASSERT(predicate<PMF0V, S volatile*&>);
+            STATIC_ASSERT(predicate<PMF0V, std::unique_ptr<S>>);
+            STATIC_ASSERT(!predicate<PMF0V, S const&>);
+            STATIC_ASSERT(!predicate<PMF0V, S const volatile&>);
+
+            STATIC_ASSERT(predicate<PMF1V, S, int>);
+            STATIC_ASSERT(predicate<PMF1V, S&, int>);
+            STATIC_ASSERT(predicate<PMF1V, S volatile&, int>);
+            STATIC_ASSERT(predicate<PMF1V, S*, int>);
+            STATIC_ASSERT(predicate<PMF1V, S volatile*, int>);
+            STATIC_ASSERT(predicate<PMF1V, S*&, int>);
+            STATIC_ASSERT(predicate<PMF1V, S volatile*&, int>);
+            STATIC_ASSERT(predicate<PMF1V, std::unique_ptr<S>, int>);
+            STATIC_ASSERT(!predicate<PMF1V, S const&, int>);
+            STATIC_ASSERT(!predicate<PMF1V, S const volatile&, int>);
+
+            STATIC_ASSERT(predicate<PMF2V, S, int, int>);
+            STATIC_ASSERT(predicate<PMF2V, S&, int, int>);
+            STATIC_ASSERT(predicate<PMF2V, S volatile&, int, int>);
+            STATIC_ASSERT(predicate<PMF2V, S*, int, int>);
+            STATIC_ASSERT(predicate<PMF2V, S volatile*, int, int>);
+            STATIC_ASSERT(predicate<PMF2V, S*&, int, int>);
+            STATIC_ASSERT(predicate<PMF2V, S volatile*&, int, int>);
+            STATIC_ASSERT(predicate<PMF2V, std::unique_ptr<S>, int, int>);
+            STATIC_ASSERT(!predicate<PMF2V, S const&, int, int>);
+            STATIC_ASSERT(!predicate<PMF2V, S const volatile&, int, int>);
+
+            STATIC_ASSERT(predicate<PMF1PV, S&, int>);
+            STATIC_ASSERT(predicate<PMF1PV, S&, int, long>);
+
+            using PMF0CV  = Bool (S::*)() const volatile;
+            using PMF1CV  = Bool (S::*)(long) const volatile;
+            using PMF2CV  = Bool (S::*)(long, int) const volatile;
+            using PMF1PCV = Bool const& (S::*) (int, ...) const volatile;
+            STATIC_ASSERT(predicate<PMF0CV, S>);
+            STATIC_ASSERT(predicate<PMF0CV, S&>);
+            STATIC_ASSERT(predicate<PMF0CV, S const&>);
+            STATIC_ASSERT(predicate<PMF0CV, S volatile&>);
+            STATIC_ASSERT(predicate<PMF0CV, S const volatile&>);
+            STATIC_ASSERT(predicate<PMF0CV, S*>);
+            STATIC_ASSERT(predicate<PMF0CV, S const*>);
+            STATIC_ASSERT(predicate<PMF0CV, S volatile*>);
+            STATIC_ASSERT(predicate<PMF0CV, S const volatile*>);
+            STATIC_ASSERT(predicate<PMF0CV, S*&>);
+            STATIC_ASSERT(predicate<PMF0CV, S const*&>);
+            STATIC_ASSERT(predicate<PMF0CV, S volatile*&>);
+            STATIC_ASSERT(predicate<PMF0CV, S const volatile*&>);
+            STATIC_ASSERT(predicate<PMF0CV, std::unique_ptr<S>>);
+
+            STATIC_ASSERT(predicate<PMF1CV, S, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S&, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S const&, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S volatile&, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S const volatile&, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S*, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S const*, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S volatile*, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S const volatile*, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S*&, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S const*&, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S volatile*&, int>);
+            STATIC_ASSERT(predicate<PMF1CV, S const volatile*&, int>);
+            STATIC_ASSERT(predicate<PMF1CV, std::unique_ptr<S>, int>);
+
+            STATIC_ASSERT(predicate<PMF2CV, S, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S&, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S const&, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S volatile&, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S const volatile&, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S*, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S const*, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S volatile*, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S const volatile*, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S*&, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S const*&, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S volatile*&, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, S const volatile*&, int, int>);
+            STATIC_ASSERT(predicate<PMF2CV, std::unique_ptr<S>, int, int>);
+
+            STATIC_ASSERT(predicate<PMF1PCV, S&, int>);
+            STATIC_ASSERT(predicate<PMF1PCV, S&, int, long>);
+        }
+
+        { // pointer to member data
+            using PMD = bool S::*;
+            STATIC_ASSERT(predicate<PMD, S&>);
+            STATIC_ASSERT(predicate<PMD, S*>);
+            STATIC_ASSERT(predicate<PMD, S* const>);
+            STATIC_ASSERT(predicate<PMD, S const&>);
+            STATIC_ASSERT(predicate<PMD, S const*>);
+            STATIC_ASSERT(predicate<PMD, S volatile&>);
+            STATIC_ASSERT(predicate<PMD, S volatile*>);
+            STATIC_ASSERT(predicate<PMD, S const volatile&>);
+            STATIC_ASSERT(predicate<PMD, S const volatile*>);
+            STATIC_ASSERT(predicate<PMD, DerivesFrom<S>&>);
+            STATIC_ASSERT(predicate<PMD, DerivesFrom<S> const&>);
+            STATIC_ASSERT(predicate<PMD, DerivesFrom<S>*>);
+            STATIC_ASSERT(predicate<PMD, DerivesFrom<S> const*>);
+            STATIC_ASSERT(predicate<PMD, std::unique_ptr<S>>);
+            STATIC_ASSERT(predicate<PMD, std::unique_ptr<S const>>);
+            STATIC_ASSERT(predicate<PMD, std::reference_wrapper<S>>);
+            STATIC_ASSERT(predicate<PMD, std::reference_wrapper<S const>>);
+            STATIC_ASSERT(!predicate<PMD, NotDerived&>);
+        }
     }
-    { // function reference
-        using Fp = Bool (&)(tag&, int);
-        STATIC_ASSERT(predicate<Fp, tag&, int>);
-        STATIC_ASSERT(predicate<Fp, DerivesFrom<tag>&, int>);
-        STATIC_ASSERT(!predicate<Fp, tag const&, int>);
-        STATIC_ASSERT(!predicate<Fp>);
-        STATIC_ASSERT(!predicate<Fp, tag&>);
-    }
-    { // function object
-        using Fn = NotCallableWithInt;
-        STATIC_ASSERT(predicate<Fn, tag>);
-        STATIC_ASSERT(!predicate<Fn, int>);
-    }
-} // namespace test_predicate
-
-{ // function object
-    STATIC_ASSERT(predicate<S, int>);
-    STATIC_ASSERT(predicate<S&, unsigned char, int&>);
-    STATIC_ASSERT(predicate<S const&, unsigned char, int&>);
-    STATIC_ASSERT(!predicate<S volatile&, unsigned char, int&>);
-    STATIC_ASSERT(!predicate<S const volatile&, unsigned char, int&>);
-
-    STATIC_ASSERT(predicate<ImplicitTo<bool (*)(long)>, int>);
-    STATIC_ASSERT(predicate<ImplicitTo<bool (*)(long)>, char>);
-    STATIC_ASSERT(predicate<ImplicitTo<bool (*)(long)>, float>);
-    STATIC_ASSERT(!predicate<ImplicitTo<bool (*)(long)>, char const*>);
-    STATIC_ASSERT(!predicate<ImplicitTo<bool (*)(long)>, S const&>);
-
-    auto omega_mu = [x = 42](int i, double) { return x == i; };
-    STATIC_ASSERT(predicate<decltype((omega_mu)), int, double>);
-    STATIC_ASSERT(predicate<decltype((omega_mu)), double, int>);
-    STATIC_ASSERT(predicate<decltype((omega_mu)), char, char>);
-    STATIC_ASSERT(!predicate<decltype((omega_mu))>);
-    STATIC_ASSERT(!predicate<decltype((omega_mu)), char const*, double>);
-    STATIC_ASSERT(!predicate<decltype((omega_mu)), double, char const*>);
-}
-
-{ // pointer to function
-    using RF0  = bool (&)();
-    using RF1  = bool* (&) (int);
-    using RF2  = bool& (&) (int, int);
-    using RF3  = bool const& (&) (int, int, int);
-    using RF4  = bool (&)(int, ...);
-    using PF0  = bool (*)();
-    using PF1  = bool* (*) (int);
-    using PF2  = bool& (*) (int, int);
-    using PF3  = bool const& (*) (int, int, int);
-    using PF4  = bool (*)(int, ...);
-    using RPF0 = bool (*&)();
-    using RPF1 = bool* (*&) (int);
-    using RPF2 = bool& (*&) (int, int);
-    using RPF3 = bool const& (*&) (int, int, int);
-    using RPF4 = bool (*&)(int, ...);
-    STATIC_ASSERT(predicate<RF0>);
-    STATIC_ASSERT(predicate<RF1, int>);
-    STATIC_ASSERT(predicate<RF2, int, long>);
-    STATIC_ASSERT(predicate<RF3, int, long, int>);
-    STATIC_ASSERT(predicate<RF4, int, float, void*>);
-    STATIC_ASSERT(predicate<PF0>);
-    STATIC_ASSERT(predicate<PF1, int>);
-    STATIC_ASSERT(predicate<PF2, int, long>);
-    STATIC_ASSERT(predicate<PF3, int, long, int>);
-    STATIC_ASSERT(predicate<PF4, int, float, void*>);
-    STATIC_ASSERT(predicate<RPF0>);
-    STATIC_ASSERT(predicate<RPF1, int>);
-    STATIC_ASSERT(predicate<RPF2, int, long>);
-    STATIC_ASSERT(predicate<RPF3, int, long, int>);
-    STATIC_ASSERT(predicate<RPF4, int, float, void*>);
-}
-
-{ // pointer to member function
-    using PMF0  = Bool (S::*)();
-    using PMF1  = Bool (S::*)(long);
-    using PMF2  = Bool& (S::*) (long, int);
-    using PMF1P = Bool const& (S::*) (int, ...);
-    STATIC_ASSERT(predicate<PMF0, S>);
-    STATIC_ASSERT(predicate<PMF0, S&>);
-    STATIC_ASSERT(predicate<PMF0, S*>);
-    STATIC_ASSERT(predicate<PMF0, S*&>);
-    STATIC_ASSERT(predicate<PMF0, std::reference_wrapper<S>>);
-    STATIC_ASSERT(predicate<PMF0, std::reference_wrapper<S> const&>);
-    STATIC_ASSERT(predicate<PMF0, std::reference_wrapper<DerivesFrom<S>>>);
-    STATIC_ASSERT(predicate<PMF0, std::reference_wrapper<DerivesFrom<S>> const&>);
-    STATIC_ASSERT(predicate<PMF0, std::unique_ptr<S>>);
-    STATIC_ASSERT(predicate<PMF0, std::unique_ptr<DerivesFrom<S>>>);
-    STATIC_ASSERT(!predicate<PMF0, S const&>);
-    STATIC_ASSERT(!predicate<PMF0, S volatile&>);
-    STATIC_ASSERT(!predicate<PMF0, S const volatile&>);
-    STATIC_ASSERT(!predicate<PMF0, NotDerived&>);
-    STATIC_ASSERT(!predicate<PMF0, NotDerived const&>);
-    STATIC_ASSERT(!predicate<PMF0, std::unique_ptr<S const>>);
-    STATIC_ASSERT(!predicate<PMF0, std::reference_wrapper<S const>>);
-    STATIC_ASSERT(!predicate<PMF0, std::reference_wrapper<NotDerived>>);
-    STATIC_ASSERT(!predicate<PMF0, std::unique_ptr<NotDerived>>);
-
-    STATIC_ASSERT(predicate<PMF1, S, int>);
-    STATIC_ASSERT(predicate<PMF1, S&, int>);
-    STATIC_ASSERT(predicate<PMF1, S*, int>);
-    STATIC_ASSERT(predicate<PMF1, S*&, int>);
-    STATIC_ASSERT(predicate<PMF1, std::unique_ptr<S>, int>);
-    STATIC_ASSERT(predicate<PMF1, std::unique_ptr<DerivesFrom<S>>, int>);
-    STATIC_ASSERT(predicate<PMF1, std::reference_wrapper<S>, int>);
-    STATIC_ASSERT(predicate<PMF1, std::reference_wrapper<S> const&, int>);
-    STATIC_ASSERT(predicate<PMF1, std::reference_wrapper<DerivesFrom<S>>, int>);
-    STATIC_ASSERT(predicate<PMF1, std::reference_wrapper<DerivesFrom<S>> const&, int>);
-    STATIC_ASSERT(!predicate<PMF1, S const&, int>);
-    STATIC_ASSERT(!predicate<PMF1, S volatile&, int>);
-    STATIC_ASSERT(!predicate<PMF1, S const volatile&, int>);
-    STATIC_ASSERT(!predicate<PMF1, NotDerived&, int>);
-    STATIC_ASSERT(!predicate<PMF1, NotDerived const&, int>);
-    STATIC_ASSERT(!predicate<PMF1, std::unique_ptr<S const>, int>);
-    STATIC_ASSERT(!predicate<PMF1, std::reference_wrapper<S const>, int>);
-    STATIC_ASSERT(!predicate<PMF1, std::reference_wrapper<NotDerived>, int>);
-    STATIC_ASSERT(!predicate<PMF1, std::unique_ptr<NotDerived>, int>);
-
-    STATIC_ASSERT(predicate<PMF2, S, int, int>);
-    STATIC_ASSERT(predicate<PMF2, S&, int, int>);
-    STATIC_ASSERT(predicate<PMF2, S*, int, int>);
-    STATIC_ASSERT(predicate<PMF2, S*&, int, int>);
-    STATIC_ASSERT(predicate<PMF2, std::unique_ptr<S>, int, int>);
-    STATIC_ASSERT(predicate<PMF2, std::unique_ptr<DerivesFrom<S>>, int, int>);
-    STATIC_ASSERT(predicate<PMF2, std::reference_wrapper<S>, int, int>);
-    STATIC_ASSERT(predicate<PMF2, std::reference_wrapper<S> const&, int, int>);
-    STATIC_ASSERT(predicate<PMF2, std::reference_wrapper<DerivesFrom<S>>, int, int>);
-    STATIC_ASSERT(predicate<PMF2, std::reference_wrapper<DerivesFrom<S>> const&, int, int>);
-    STATIC_ASSERT(!predicate<PMF2, S const&, int, int>);
-    STATIC_ASSERT(!predicate<PMF2, S volatile&, int, int>);
-    STATIC_ASSERT(!predicate<PMF2, S const volatile&, int, int>);
-    STATIC_ASSERT(!predicate<PMF2, std::unique_ptr<S const>, int, int>);
-    STATIC_ASSERT(!predicate<PMF2, std::reference_wrapper<S const>, int, int>);
-    STATIC_ASSERT(!predicate<PMF2, NotDerived const&, int, int>);
-    STATIC_ASSERT(!predicate<PMF2, std::reference_wrapper<NotDerived>, int, int>);
-    STATIC_ASSERT(!predicate<PMF2, std::unique_ptr<NotDerived>, int, int>);
-
-    STATIC_ASSERT(predicate<PMF1P, S&, int>);
-    STATIC_ASSERT(predicate<PMF1P, S&, int, long>);
-
-    using PMF0C  = bool (S::*)() const;
-    using PMF1C  = bool (S::*)(long) const;
-    using PMF2C  = bool (S::*)(long, int) const;
-    using PMF1PC = bool const& (S::*) (int, ...) const;
-    STATIC_ASSERT(predicate<PMF0C, S>);
-    STATIC_ASSERT(predicate<PMF0C, S&>);
-    STATIC_ASSERT(predicate<PMF0C, S const&>);
-    STATIC_ASSERT(predicate<PMF0C, S*>);
-    STATIC_ASSERT(predicate<PMF0C, S const*>);
-    STATIC_ASSERT(predicate<PMF0C, S*&>);
-    STATIC_ASSERT(predicate<PMF0C, S const*&>);
-    STATIC_ASSERT(predicate<PMF0C, std::unique_ptr<S>>);
-    STATIC_ASSERT(predicate<PMF0C, std::unique_ptr<DerivesFrom<S>>>);
-    STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<S>>);
-    STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<S const>>);
-    STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<S> const&>);
-    STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<S const> const&>);
-    STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<DerivesFrom<S>>>);
-    STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<DerivesFrom<S> const>>);
-    STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<DerivesFrom<S>> const&>);
-    STATIC_ASSERT(predicate<PMF0C, std::reference_wrapper<DerivesFrom<S> const> const&>);
-    STATIC_ASSERT(!predicate<PMF0C, S volatile&>);
-    STATIC_ASSERT(!predicate<PMF0C, S const volatile&>);
-
-    STATIC_ASSERT(predicate<PMF1C, S, int>);
-    STATIC_ASSERT(predicate<PMF1C, S&, int>);
-    STATIC_ASSERT(predicate<PMF1C, S const&, int>);
-    STATIC_ASSERT(predicate<PMF1C, S*, int>);
-    STATIC_ASSERT(predicate<PMF1C, S const*, int>);
-    STATIC_ASSERT(predicate<PMF1C, S*&, int>);
-    STATIC_ASSERT(predicate<PMF1C, S const*&, int>);
-    STATIC_ASSERT(predicate<PMF1C, std::unique_ptr<S>, int>);
-    STATIC_ASSERT(!predicate<PMF1C, S volatile&, int>);
-    STATIC_ASSERT(!predicate<PMF1C, S const volatile&, int>);
-
-    STATIC_ASSERT(predicate<PMF2C, S, int, int>);
-    STATIC_ASSERT(predicate<PMF2C, S&, int, int>);
-    STATIC_ASSERT(predicate<PMF2C, S const&, int, int>);
-    STATIC_ASSERT(predicate<PMF2C, S*, int, int>);
-    STATIC_ASSERT(predicate<PMF2C, S const*, int, int>);
-    STATIC_ASSERT(predicate<PMF2C, S*&, int, int>);
-    STATIC_ASSERT(predicate<PMF2C, S const*&, int, int>);
-    STATIC_ASSERT(predicate<PMF2C, std::unique_ptr<S>, int, int>);
-    STATIC_ASSERT(!predicate<PMF2C, S volatile&, int, int>);
-    STATIC_ASSERT(!predicate<PMF2C, S const volatile&, int, int>);
-
-    STATIC_ASSERT(predicate<PMF1PC, S&, int>);
-    STATIC_ASSERT(predicate<PMF1PC, S&, int, long>);
-
-    using PMF0V  = bool (S::*)() volatile;
-    using PMF1V  = bool (S::*)(long) volatile;
-    using PMF2V  = bool (S::*)(long, int) volatile;
-    using PMF1PV = bool const& (S::*) (int, ...) volatile;
-    STATIC_ASSERT(predicate<PMF0V, S>);
-    STATIC_ASSERT(predicate<PMF0V, S&>);
-    STATIC_ASSERT(predicate<PMF0V, S volatile&>);
-    STATIC_ASSERT(predicate<PMF0V, S*>);
-    STATIC_ASSERT(predicate<PMF0V, S volatile*>);
-    STATIC_ASSERT(predicate<PMF0V, S*&>);
-    STATIC_ASSERT(predicate<PMF0V, S volatile*&>);
-    STATIC_ASSERT(predicate<PMF0V, std::unique_ptr<S>>);
-    STATIC_ASSERT(!predicate<PMF0V, S const&>);
-    STATIC_ASSERT(!predicate<PMF0V, S const volatile&>);
-
-    STATIC_ASSERT(predicate<PMF1V, S, int>);
-    STATIC_ASSERT(predicate<PMF1V, S&, int>);
-    STATIC_ASSERT(predicate<PMF1V, S volatile&, int>);
-    STATIC_ASSERT(predicate<PMF1V, S*, int>);
-    STATIC_ASSERT(predicate<PMF1V, S volatile*, int>);
-    STATIC_ASSERT(predicate<PMF1V, S*&, int>);
-    STATIC_ASSERT(predicate<PMF1V, S volatile*&, int>);
-    STATIC_ASSERT(predicate<PMF1V, std::unique_ptr<S>, int>);
-    STATIC_ASSERT(!predicate<PMF1V, S const&, int>);
-    STATIC_ASSERT(!predicate<PMF1V, S const volatile&, int>);
-
-    STATIC_ASSERT(predicate<PMF2V, S, int, int>);
-    STATIC_ASSERT(predicate<PMF2V, S&, int, int>);
-    STATIC_ASSERT(predicate<PMF2V, S volatile&, int, int>);
-    STATIC_ASSERT(predicate<PMF2V, S*, int, int>);
-    STATIC_ASSERT(predicate<PMF2V, S volatile*, int, int>);
-    STATIC_ASSERT(predicate<PMF2V, S*&, int, int>);
-    STATIC_ASSERT(predicate<PMF2V, S volatile*&, int, int>);
-    STATIC_ASSERT(predicate<PMF2V, std::unique_ptr<S>, int, int>);
-    STATIC_ASSERT(!predicate<PMF2V, S const&, int, int>);
-    STATIC_ASSERT(!predicate<PMF2V, S const volatile&, int, int>);
-
-    STATIC_ASSERT(predicate<PMF1PV, S&, int>);
-    STATIC_ASSERT(predicate<PMF1PV, S&, int, long>);
-
-    using PMF0CV  = Bool (S::*)() const volatile;
-    using PMF1CV  = Bool (S::*)(long) const volatile;
-    using PMF2CV  = Bool (S::*)(long, int) const volatile;
-    using PMF1PCV = Bool const& (S::*) (int, ...) const volatile;
-    STATIC_ASSERT(predicate<PMF0CV, S>);
-    STATIC_ASSERT(predicate<PMF0CV, S&>);
-    STATIC_ASSERT(predicate<PMF0CV, S const&>);
-    STATIC_ASSERT(predicate<PMF0CV, S volatile&>);
-    STATIC_ASSERT(predicate<PMF0CV, S const volatile&>);
-    STATIC_ASSERT(predicate<PMF0CV, S*>);
-    STATIC_ASSERT(predicate<PMF0CV, S const*>);
-    STATIC_ASSERT(predicate<PMF0CV, S volatile*>);
-    STATIC_ASSERT(predicate<PMF0CV, S const volatile*>);
-    STATIC_ASSERT(predicate<PMF0CV, S*&>);
-    STATIC_ASSERT(predicate<PMF0CV, S const*&>);
-    STATIC_ASSERT(predicate<PMF0CV, S volatile*&>);
-    STATIC_ASSERT(predicate<PMF0CV, S const volatile*&>);
-    STATIC_ASSERT(predicate<PMF0CV, std::unique_ptr<S>>);
-
-    STATIC_ASSERT(predicate<PMF1CV, S, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S&, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S const&, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S volatile&, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S const volatile&, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S*, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S const*, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S volatile*, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S const volatile*, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S*&, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S const*&, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S volatile*&, int>);
-    STATIC_ASSERT(predicate<PMF1CV, S const volatile*&, int>);
-    STATIC_ASSERT(predicate<PMF1CV, std::unique_ptr<S>, int>);
-
-    STATIC_ASSERT(predicate<PMF2CV, S, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S&, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S const&, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S volatile&, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S const volatile&, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S*, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S const*, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S volatile*, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S const volatile*, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S*&, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S const*&, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S volatile*&, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, S const volatile*&, int, int>);
-    STATIC_ASSERT(predicate<PMF2CV, std::unique_ptr<S>, int, int>);
-
-    STATIC_ASSERT(predicate<PMF1PCV, S&, int>);
-    STATIC_ASSERT(predicate<PMF1PCV, S&, int, long>);
-}
-
-{ // pointer to member data
-    using PMD = bool S::*;
-    STATIC_ASSERT(predicate<PMD, S&>);
-    STATIC_ASSERT(predicate<PMD, S*>);
-    STATIC_ASSERT(predicate<PMD, S* const>);
-    STATIC_ASSERT(predicate<PMD, S const&>);
-    STATIC_ASSERT(predicate<PMD, S const*>);
-    STATIC_ASSERT(predicate<PMD, S volatile&>);
-    STATIC_ASSERT(predicate<PMD, S volatile*>);
-    STATIC_ASSERT(predicate<PMD, S const volatile&>);
-    STATIC_ASSERT(predicate<PMD, S const volatile*>);
-    STATIC_ASSERT(predicate<PMD, DerivesFrom<S>&>);
-    STATIC_ASSERT(predicate<PMD, DerivesFrom<S> const&>);
-    STATIC_ASSERT(predicate<PMD, DerivesFrom<S>*>);
-    STATIC_ASSERT(predicate<PMD, DerivesFrom<S> const*>);
-    STATIC_ASSERT(predicate<PMD, std::unique_ptr<S>>);
-    STATIC_ASSERT(predicate<PMD, std::unique_ptr<S const>>);
-    STATIC_ASSERT(predicate<PMD, std::reference_wrapper<S>>);
-    STATIC_ASSERT(predicate<PMD, std::reference_wrapper<S const>>);
-    STATIC_ASSERT(!predicate<PMD, NotDerived&>);
-}
-}
 } // namespace test_predicate
 
 namespace test_relation {
@@ -3328,11 +3348,9 @@ namespace test_relation {
 
     template <unsigned int>
     struct A {};
-    // clang-format off
     template <unsigned int U>
         requires (0 < U)
     Bool operator==(A<U>, A<U>); // A<0> == A<0> is invalid
-    // clang-format on
     STATIC_ASSERT(!test<Equivalent, A<0>>());
     STATIC_ASSERT(test<Equivalent, A<1>>());
 
@@ -3363,11 +3381,9 @@ namespace test_relation {
     struct C {};
     enum E : bool { No, Yes };
     E operator==(C<0>&, C<0>&); // const C<0> == const C<0> is invalid
-    // clang-format off
     template <unsigned int I>
         requires (0 != I)
     E operator==(C<I>, C<I>);
-    // clang-format on
 
     STATIC_ASSERT(!test<Equivalent, const C<0>>());
     STATIC_ASSERT(test<Equivalent, const C<1>>());
