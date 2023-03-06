@@ -7,9 +7,9 @@
 #include <concepts>
 #include <exception>
 #include <expected>
-#include <initializer_list>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 using namespace std;
 
@@ -202,7 +202,7 @@ namespace test_expected {
 
         struct payload_default_constructor {
             constexpr payload_default_constructor()
-                requires (should_be_defaultable)
+                requires (IsYes(defaultConstructible))
                 : _val(42) {}
 
             [[nodiscard]] constexpr bool operator==(const int val) const noexcept {
@@ -2043,6 +2043,14 @@ void test_reinit_regression() {
         assert(i == magic);
     }
 }
+
+// Defend against regression of llvm-project#59854, in which clang is confused
+// by the explicit `noexcept` on `expected`'s destructors.
+struct Data {
+    vector<int> vec_;
+    constexpr Data(initializer_list<int> il) : vec_(il) {}
+};
+static_assert(((void) expected<void, Data>{unexpect, {1, 2, 3}}, true));
 
 int main() {
     test_unexpected::test_all();

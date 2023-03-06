@@ -1,6 +1,10 @@
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+##################################################
+# Lists of files. (We can also copy files here.) #
+##################################################
+
 set(HEADERS
     ${CMAKE_CURRENT_LIST_DIR}/inc/__msvc_all_public_headers.hpp
     ${CMAKE_CURRENT_LIST_DIR}/inc/__msvc_chrono.hpp
@@ -8,6 +12,7 @@ set(HEADERS
     ${CMAKE_CURRENT_LIST_DIR}/inc/__msvc_format_ucd_tables.hpp
     ${CMAKE_CURRENT_LIST_DIR}/inc/__msvc_int128.hpp
     ${CMAKE_CURRENT_LIST_DIR}/inc/__msvc_iter_core.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/inc/__msvc_sanitizer_annotate_container.hpp
     ${CMAKE_CURRENT_LIST_DIR}/inc/__msvc_system_error_abi.hpp
     ${CMAKE_CURRENT_LIST_DIR}/inc/__msvc_tzdb.hpp
     ${CMAKE_CURRENT_LIST_DIR}/inc/__msvc_xlocinfo_types.hpp
@@ -255,14 +260,15 @@ foreach(header ${HEADERS})
     configure_file("${header}" "${PROJECT_BINARY_DIR}/out/inc/${_header_path}" COPYONLY)
 endforeach()
 
-set(IXX_FILES
+set(MODULE_FILES
+    ${CMAKE_CURRENT_LIST_DIR}/modules/modules.json
     ${CMAKE_CURRENT_LIST_DIR}/modules/std.ixx
     ${CMAKE_CURRENT_LIST_DIR}/modules/std.compat.ixx
 )
 
-foreach(ixx_file ${IXX_FILES})
-    file(RELATIVE_PATH _ixx_file_path "${CMAKE_CURRENT_LIST_DIR}/modules" "${ixx_file}")
-    configure_file("${ixx_file}" "${PROJECT_BINARY_DIR}/out/modules/${_ixx_file_path}" COPYONLY)
+foreach(module_file ${MODULE_FILES})
+    file(RELATIVE_PATH _module_file_path "${CMAKE_CURRENT_LIST_DIR}/modules" "${module_file}")
+    configure_file("${module_file}" "${PROJECT_BINARY_DIR}/out/modules/${_module_file_path}" COPYONLY)
 endforeach()
 
 # Objs that implement aliases; these are completely independent of the configuration
@@ -461,7 +467,9 @@ set(SATELLITE_DLL_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/dllmain_satellite.cpp
 )
 
-add_compile_definitions(_CRTBLD _VCRT_ALLOW_INTERNALS _HAS_OLD_IOSTREAMS_MEMBERS=1 _STL_CONCRT_SUPPORT)
+####################
+# Toolset options. #
+####################
 
 set(CMAKE_CXX_FLAGS "")
 set(CMAKE_CXX_FLAGS_DEBUG "")
@@ -481,10 +489,25 @@ set(CMAKE_SHARED_LINKER_FLAGS "/DEBUG:FULL /WX /RELEASE /SUBSYSTEM:Console /NODE
 set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "")
 set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "")
 
+# Toolset options must appear before add_library() for the options to take effect.
+add_compile_definitions(_CRTBLD _VCRT_ALLOW_INTERNALS _HAS_OLD_IOSTREAMS_MEMBERS=1 _STL_CONCRT_SUPPORT)
+
+# /Z7 for MSVC, /Zi for MASM
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "Embedded")
+
+add_compile_options(/WX /Gy
+    "$<$<COMPILE_LANGUAGE:CXX>:/diagnostics:caret;/W4;/w14265;/w15038;/fastfail;/guard:cf;/Zp8;/std:c++latest;/permissive-;/Zc:threadSafeInit-;/Zl>"
+    "$<$<COMPILE_LANGUAGE:ASM_MASM>:/W3;/nologo>"
+)
+
 include_directories(BEFORE
     "${CMAKE_CURRENT_LIST_DIR}/inc"
     "${TOOLSET_ROOT_DIR}/crt/src/vcruntime"
 )
+
+###########################
+# End of toolset options. #
+###########################
 
 if(VCLIBS_TARGET_ARCHITECTURE MATCHES "^(x86|x64)$")
     add_library(stl_alias_objects OBJECT ${ALIAS_SOURCES_X86_X64})
@@ -494,12 +517,6 @@ else()
     # on ARM64 and ARM, we can unconditionally expect Synchronization.lib to exist
     string(APPEND CMAKE_CXX_STANDARD_LIBRARIES " Synchronization.lib")
 endif()
-
-add_compile_options(/WX /Gy
-    "$<$<COMPILE_LANGUAGE:CXX>:/diagnostics:caret;/W4;/w14265;/w15038;/fastfail;/guard:cf;/Z7;/Zp8;/std:c++latest;/permissive-;/Zc:threadSafeInit-;/Zl>"
-    # note that /Zi generates debug info inside the object file, it's the same as /Z7 for msvc
-    "$<$<COMPILE_LANGUAGE:ASM_MASM>:/Zi;/W3;/nologo>"
-)
 
 function(target_stl_compile_options tgt rel_or_dbg)
     if(rel_or_dbg STREQUAL "Release")

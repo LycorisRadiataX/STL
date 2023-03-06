@@ -32,6 +32,8 @@ public:
         friend bitset<_Bits>;
 
     public:
+        _CONSTEXPR23 reference(const reference&) = default;
+
         _CONSTEXPR23 ~reference() noexcept {} // TRANSITION, ABI
 
         _CONSTEXPR23 reference& operator=(const bool _Val) noexcept {
@@ -44,17 +46,17 @@ public:
             return *this;
         }
 
-        _CONSTEXPR23 reference& flip() noexcept {
-            _Pbitset->_Flip_unchecked(_Mypos);
-            return *this;
-        }
-
         _NODISCARD _CONSTEXPR23 bool operator~() const noexcept {
             return !_Pbitset->_Subscript(_Mypos);
         }
 
         _CONSTEXPR23 operator bool() const noexcept {
             return _Pbitset->_Subscript(_Mypos);
+        }
+
+        _CONSTEXPR23 reference& flip() noexcept {
+            _Pbitset->_Flip_unchecked(_Mypos);
+            return *this;
         }
 
     private:
@@ -69,7 +71,7 @@ public:
     static _CONSTEXPR23 void _Validate(const size_t _Pos) noexcept { // verify that _Pos is within bounds
 #if _ITERATOR_DEBUG_LEVEL == 0
         (void) _Pos;
-#else // ^^^ _ITERATOR_DEBUG_LEVEL == 0 ^^^ // vvv _ITERATOR_DEBUG_LEVEL != 0 vvv
+#else // ^^^ _ITERATOR_DEBUG_LEVEL == 0 / _ITERATOR_DEBUG_LEVEL != 0 vvv
         _STL_VERIFY(_Pos < _Bits, "bitset index outside range");
 #endif // _ITERATOR_DEBUG_LEVEL == 0
     }

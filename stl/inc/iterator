@@ -132,7 +132,7 @@ public:
 #ifdef __cpp_lib_concepts
     using difference_type = ptrdiff_t;
     using _Wrapped_iter   = ranges::iterator_t<_Container>;
-#else // ^^^ implementing Ranges // no Ranges vvv
+#else // ^^^ implementing Ranges / no Ranges vvv
     using difference_type = void;
     using _Wrapped_iter   = typename _Container::iterator;
 #endif // __cpp_lib_concepts
@@ -187,13 +187,13 @@ public:
     constexpr move_sentinel() = default;
 
     constexpr explicit move_sentinel(_Se _Val) noexcept(is_nothrow_move_constructible_v<_Se>) // strengthened
-        : _Last{_STD move(_Val)} {}
+        : _Last(_STD move(_Val)) {}
 
     template <class _Se2>
         requires convertible_to<const _Se2&, _Se>
     constexpr move_sentinel(const move_sentinel<_Se2>& _Val) noexcept(
         is_nothrow_constructible_v<_Se, const _Se2&>) // strengthened
-        : _Last{_Val._Get_last()} {}
+        : _Last(_Val._Get_last()) {}
 
     template <class _Se2>
         requires assignable_from<_Se&, const _Se2&>
@@ -1590,7 +1590,7 @@ public:
             "cannot compare incompatible checked_array_iterators");
         return _Myindex <=> _Right._Myindex;
     }
-#else // ^^^ _HAS_CXX20 ^^^ / vvv !_HAS_CXX20 vvv
+#else // ^^^ _HAS_CXX20 / !_HAS_CXX20 vvv
     _NODISCARD constexpr bool operator!=(const checked_array_iterator& _Right) const noexcept {
         return !(*this == _Right);
     }
@@ -1746,7 +1746,7 @@ public:
     _NODISCARD constexpr _STD strong_ordering operator<=>(const unchecked_array_iterator& _Right) const noexcept {
         return _Myptr <=> _Right._Myptr;
     }
-#else // ^^^ _HAS_CXX20 ^^^ / vvv !_HAS_CXX20 vvv
+#else // ^^^ _HAS_CXX20 / !_HAS_CXX20 vvv
     _NODISCARD constexpr bool operator!=(const unchecked_array_iterator& _Right) const noexcept {
         return !(*this == _Right);
     }

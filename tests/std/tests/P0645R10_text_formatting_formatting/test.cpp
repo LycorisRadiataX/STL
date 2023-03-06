@@ -25,7 +25,7 @@ constexpr auto llong_max  = numeric_limits<long long>::max();
 constexpr auto ullong_max = numeric_limits<unsigned long long>::max();
 
 // copied from the string_view tests
-template <typename CharT>
+template <class CharT>
 struct choose_literal; // not defined
 
 template <>
@@ -51,6 +51,16 @@ struct choose_literal<wchar_t> {
 #else
 #define DEFAULT_IDL_SETTING 0
 #endif
+
+// Test formatting basic_string(_view) with non-Standard traits_type
+template <class CharT>
+struct alternative_char_traits : char_traits<CharT> {};
+
+template <class CharT>
+using alternative_basic_string_view = basic_string_view<CharT, alternative_char_traits<CharT>>;
+
+template <class CharT, class Alloc = allocator<CharT>>
+using alternative_basic_string = basic_string<CharT, alternative_char_traits<CharT>, Alloc>;
 
 template <class charT, class... Args>
 auto make_testing_format_args(Args&&... vals) {
@@ -135,6 +145,26 @@ void test_simple_formatting() {
     format_to_n(move_only_back_inserter{output_string}, 300, STR("{} {} {} {} {} {} {} {} {}"), true, charT{'a'}, 0, 0u,
         0.0, STR("s"), basic_string_view{STR("sv")}, nullptr, static_cast<void*>(nullptr));
     assert(output_string == STR("true a 0 0 0 s sv 0x0 0x0"));
+
+    // Test formatting basic_string(_view) with non-Standard traits_type
+    // TRANSITION, LLVM-54051, DevCom-10255929, should also test class template argument deduction for alias templates
+    output_string.clear();
+    format_to(move_only_back_inserter{output_string}, STR("{} {} {} {} {} {} {} {} {} {}"), true, charT{'a'}, 0, 0u,
+        0.0, STR("s"), alternative_basic_string<charT>{STR("str")}, alternative_basic_string_view<charT>{STR("sv")},
+        nullptr, static_cast<void*>(nullptr));
+    assert(output_string == STR("true a 0 0 0 s str sv 0x0 0x0"));
+
+    output_string.clear();
+    format_to(move_only_back_inserter{output_string}, STR("{:} {:} {:} {:} {:} {:} {:} {:} {:} {:}"), true, charT{'a'},
+        0, 0u, 0.0, STR("s"), alternative_basic_string<charT>{STR("str")},
+        alternative_basic_string_view<charT>{STR("sv")}, nullptr, static_cast<void*>(nullptr));
+    assert(output_string == STR("true a 0 0 0 s str sv 0x0 0x0"));
+
+    output_string.clear();
+    format_to_n(move_only_back_inserter{output_string}, 300, STR("{} {} {} {} {} {} {} {} {} {}"), true, charT{'a'}, 0,
+        0u, 0.0, STR("s"), alternative_basic_string<charT>{STR("str")}, alternative_basic_string_view<charT>{STR("sv")},
+        nullptr, static_cast<void*>(nullptr));
+    assert(output_string == STR("true a 0 0 0 s str sv 0x0 0x0"));
 
     output_string.clear();
     vformat_to(
@@ -1326,9 +1356,12 @@ void libfmt_formatter_test_runtime_width() {
     throw_helper(STR("{0:{1}}"), 0, (int_max + 1u));
     throw_helper(STR("{0:{1}}"), 0, -1l);
     throw_helper(STR("{0:{1}}"), 0, (int_max + 1ul));
-    assert(format(STR("{0:{1}}"), 0, '0')
-           == STR("                                               0")); // behavior differs from libfmt, but conforms
     throw_helper(STR("{0:{1}}"), 0, 0.0);
+
+    // LWG-3720: Restrict the valid types of arg-id for width and precision in std-format-spec
+    throw_helper(STR("{:*^{}}"), 'a', true);
+    throw_helper(STR("{:*^{}}"), 'a', '0');
+    assert(format(STR("{:*^{}}"), 'a', static_cast<signed char>(2)) == STR("a*"));
 
     assert(format(STR("{0:{1}}"), 42, 0) == STR("42")); // LWG-3721: zero dynamic width is OK
 
@@ -1377,6 +1410,11 @@ void libfmt_formatter_test_runtime_precision() {
     throw_helper(STR("{0:.{1}}"), reinterpret_cast<void*>(0xcafe), 2);
     throw_helper(STR("{0:.{1}f}"), reinterpret_cast<void*>(0xcafe), 2);
     assert(format(STR("{0:.{1}}"), STR("str"), 2) == STR("st"));
+
+    // LWG-3720: Restrict the valid types of arg-id for width and precision in std-format-spec
+    throw_helper(STR("{:.{}f}"), 3.14f, true);
+    throw_helper(STR("{:.{}f}"), 3.14f, '0');
+    assert(format(STR("{:.{}f}"), 3.14f, static_cast<signed char>(2)) == STR("3.14"));
 }
 
 template <class charT>
